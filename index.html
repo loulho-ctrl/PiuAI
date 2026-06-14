@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Support Chat Live & Vraie IA</title>
+    <title>Piu AI - Chat Live (Gemini)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -24,20 +24,31 @@
             gap: 15px;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             overflow-y: auto;
+            z-index: 10;
         }
 
-        /* Mode Client Unique : Cache le panneau opérateur */
-        body.client-mode #operator-panel {
-            display: none;
-        }
+        body.client-mode #operator-panel { display: none; }
 
-        /* Zone de Chat Principale */
         #chat-container {
             flex: 1;
             display: flex;
             flex-direction: column;
             background: white;
+            position: relative;
         }
+
+        #ai-header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #ai-header .logo-container { font-size: 24px; }
+        #ai-header h1 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight: 700; }
+        #ai-header .status-dot { width: 8px; height: 8px; background-color: #2ecc71; border-radius: 50%; margin-left: auto; }
 
         #login-screen {
             display: flex;
@@ -45,14 +56,12 @@
             align-items: center;
             justify-content: center;
             height: 100%;
-            gap: 10px;
+            gap: 15px;
+            padding: 20px;
         }
 
-        #chat-screen {
-            display: none;
-            flex-direction: column;
-            height: 100%;
-        }
+        .login-logo { width: 150px; height: 150px; font-size: 80px; display: flex; align-items: center; justify-content: center; }
+        #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
 
         #messages {
             flex: 1;
@@ -61,59 +70,18 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            background-color: #f8fafc;
         }
 
-        .message {
-            max-width: 70%;
-            padding: 10px 15px;
-            border-radius: 15px;
-            margin: 5px 0;
-            word-wrap: break-word;
-        }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
+        .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .ai-msg { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
 
-        .user-msg {
-            background-color: #e1ffd4;
-            align-self: flex-end;
-        }
+        .input-area { display: flex; padding: 15px; border-top: 1px solid #e2e8f0; gap: 10px; background: white; }
+        input[type="text"], textarea { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
+        .api-input { background-color: #34495e; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 5px; }
 
-        .ai-msg {
-            background-color: #f1f0f0;
-            align-self: flex-start;
-        }
-
-        .input-area {
-            display: flex;
-            padding: 15px;
-            border-top: 1px solid #ddd;
-            gap: 10px;
-        }
-
-        input[type="text"], textarea {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-
-        /* Sécurité Clé API */
-        .api-input {
-            background-color: #34495e;
-            border: 1px solid #7f8c8d;
-            color: white;
-            padding: 8px;
-            border-radius: 5px;
-        }
-
-        button {
-            padding: 10px 15px;
-            border: none;
-            background-color: #3498db;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
+        button { padding: 10px 20px; border: none; background-color: #3498db; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         .ai-btn { background-color: #2ecc71; }
         .ai-btn:hover { background-color: #27ae60; }
@@ -125,49 +93,54 @@
     <div id="operator-panel">
         <h3>🧙‍♂️ Mode Magicien (Toi)</h3>
         
-        <!-- Case Secrète pour coller ta clé en direct -->
-        <label for="openai-key">🔑 Ta Clé OpenAI (sk-...) :</label>
-        <input type="password" id="openai-key" class="api-input" placeholder="Colle ta clé ici pour jouer...">
+        <!-- Case modifiée pour accepter n'importe quel type de clé -->
+        <label for="gemini-key">🔑 Ta Clé Gemini :</label>
+        <input type="password" id="gemini-key" class="api-input" placeholder="Colle ta clé ici...">
         
         <hr style="border-color: #4f5d73; width: 100%;">
-        
         <p>Client Actif : <strong id="current-target-name">En attente...</strong></p>
-
         <hr style="border-color: #4f5d73; width: 100%;">
 
         <label for="operator-reply">Ta réponse secrète :</label>
-        <textarea id="operator-reply" rows="5" placeholder="L'IA mettra sa réponse ici, tu pourras la modifier avant d'envoyer !"></textarea>
+        <textarea id="operator-reply" rows="5" placeholder="L'IA mettra sa réponse ici..."></textarea>
         
-        <button class="ai-btn" id="generate-ai-btn">🤖 Générer avec VRAIE IA (OpenAI)</button>
-        <button id="send-operator-btn">🚀 Envoyer comme "IA"</button>
+        <button class="ai-btn" id="generate-ai-btn">🤖 Générer avec Piu AI (Gemini)</button>
+        <button id="send-operator-btn">🚀 Envoyer comme "Piu AI"</button>
     </div>
 
     <!-- INTERFACE CLIENT -->
     <div id="chat-container">
-        <!-- Étape 1 : Connexion Client -->
-        <div id="login-screen">
-            <h2>Bienvenue sur l'Assistant IA</h2>
-            <p>Entrez votre prénom pour commencer :</p>
-            <input type="text" id="username-input" placeholder="Votre prénom...">
-            <button id="start-chat-btn">Démarrer la conversation</button>
+        <div id="ai-header">
+            <!-- Tu pourras remplacer l'emoji par <img src="image_9179c5.jpg" class="logo-img"> plus tard -->
+            <div class="logo-container">🐣</div>
+            <h1>Piu AI</h1>
+            <div class="status-dot"></div>
         </div>
 
-        <!-- Étape 2 : Le Chat -->
+        <div id="login-screen">
+            <!-- Tu pourras remplacer l'emoji par <img src="image_9179c5.jpg" style="max-width:100%"> plus tard -->
+            <div class="login-logo">🐣</div>
+            <h2>Bienvenue sur Piu AI</h2>
+            <p>Entrez votre prénom pour commencer la discussion :</p>
+            <input type="text" id="username-input" placeholder="Votre prénom...">
+            <button id="start-chat-btn">Accéder au Chat</button>
+        </div>
+
         <div id="chat-screen">
             <div id="messages"></div>
             <div class="input-area">
-                <input type="text" id="customer-input" placeholder="Posez votre question à l'IA...">
+                <input type="text" id="customer-input" placeholder="Posez votre question à Piu AI...">
                 <button id="send-customer-btn">Envoyer</button>
             </div>
         </div>
     </div>
 
-    <!-- Chargement de Firebase via CDN (Modules) -->
+    <!-- Script Firebase & Logique de l'application -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Tes configurations Firebase déjà en place :
+        // Configuration Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCSqcoCPrAbmC2LxCRDCKD82UlFyZRmYdY",
             authDomain: "fakeai-fd878.firebaseapp.com",
@@ -179,17 +152,14 @@
             measurementId: "G-TM20HEFXRR"
         };
 
-        // Initialisation de Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Variables globales de référence
         let currentUsername = "";
-        let lastUserMessage = ""; // Pour retenir la dernière question du client
+        let lastUserMessage = ""; 
         const chatRef = ref(db, 'chat_session/messages');
         const userRef = ref(db, 'chat_session/user');
 
-        // Éléments DOM
         const loginScreen = document.getElementById('login-screen');
         const chatScreen = document.getElementById('chat-screen');
         const usernameInput = document.getElementById('username-input');
@@ -201,44 +171,33 @@
         const operatorReply = document.getElementById('operator-reply');
         const generateAiBtn = document.getElementById('generate-ai-btn');
         const sendOperatorBtn = document.getElementById('send-operator-btn');
-        const openaiKeyInput = document.getElementById('openai-key');
+        const geminiKeyInput = document.getElementById('gemini-key');
 
-        // Mode client masqué via ?client=1
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('client')) {
-            document.body.classList.add('client-mode');
-        }
+        if (urlParams.has('client')) { document.body.classList.add('client-mode'); }
 
-        // 1. Quand le client entre son prénom
         startChatBtn.addEventListener('click', () => {
             const name = usernameInput.value.trim();
             if(name !== "") {
                 currentUsername = name;
                 set(userRef, name);
-                
                 loginScreen.style.display = 'none';
                 chatScreen.style.display = 'flex';
             }
         });
 
-        // L'opérateur reçoit le nom en direct
         onValue(userRef, (snapshot) => {
             const name = snapshot.val();
-            if(name) {
-                targetNameDisplay.innerText = `👤 ${name}`;
-            }
+            if(name) { targetNameDisplay.innerText = `👤 ${name}`; }
         });
 
-        // Réception et synchronisation des messages en temps réel
         onValue(chatRef, (snapshot) => {
             messagesContainer.innerHTML = ""; 
             const data = snapshot.val();
             if(data) {
                 Object.values(data).forEach(msg => {
                     appendMessageHtml(msg.text, msg.sender);
-                    // On garde en mémoire le dernier message envoyé par le client pour l'IA
                     if(msg.sender === 'user') {
-                        // On enlève le "Nom: " au début du texte pour n'avoir que la question
                         lastUserMessage = msg.text.substring(msg.text.indexOf(':') + 2);
                     }
                 });
@@ -253,7 +212,6 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // 2. Le client envoie son message
         sendCustomerBtn.addEventListener('click', () => {
             const text = customerInput.value.trim();
             if(text !== "") {
@@ -266,61 +224,55 @@
             }
         });
 
-        // 3. APPEL À LA VRAIE IA D'OPENAI (Déclenché par ton bouton)
-        async function fetchRealAI(question) {
-            const apiKey = openaiKeyInput.value.trim();
+        // 3. APPEL À L'IA DE GOOGLE GEMINI (Sans filtre sur le nom de la clé)
+        async function fetchGeminiAI(question) {
+            const apiKey = geminiKeyInput.value.trim();
             
             if(!apiKey) {
-                alert("⚠️ Oups ! Tu as oublié de coller ta clé OpenAI tout en haut du panneau de gauche.");
+                alert("⚠️ N'oublie pas de coller ta clé Gemini tout en haut !");
                 operatorReply.value = "";
                 return;
             }
 
             try {
-                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${apiKey}`
+                        "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        model: "gpt-4o-mini", // Modèle récent, très rapide et très économique
-                        messages: [
-                            { role: "system", content: "Tu es un assistant IA drôle, poli et très intelligent." },
-                            { role: "user", content: question }
-                        ],
-                        max_tokens: 300
+                        contents: [{
+                            parts: [{
+                                text: `Tu es Piu AI, un assistant virtuel représenté par un petit poussin super intelligent et mignon dans sa coquille (comme sur l'image image_9179c5.jpg). Réponds de façon amicale à cette question : ${question}`
+                            }]
+                        }]
                     })
                 });
 
                 if(!response.ok) {
-                    throw new Error("Erreur de réponse de l'API OpenAI. Vérifie ta clé ou tes crédits.");
+                    throw new Error("Erreur de l'API Gemini.");
                 }
 
                 const data = await response.json();
-                const aiText = data.choices[0].message.content;
-                
-                // On met la réponse reçue dans ton bloc de texte
+                const aiText = data.candidates[0].content.parts[0].text;
                 operatorReply.value = aiText;
 
             } catch (error) {
                 console.error(error);
-                alert("Erreur lors de l'appel à OpenAI. Regarde la console de ton navigateur.");
-                operatorReply.value = "Impossible de générer une réponse automatique.";
+                alert("Erreur avec Gemini. Vérifie que ta clé est collée en entier.");
+                operatorReply.value = "Impossible de générer une réponse.";
             }
         }
 
-        // Clic sur le bouton de génération automatique
         generateAiBtn.addEventListener('click', () => {
             if(!lastUserMessage) {
                 alert("Le client n'a pas encore posé de question !");
                 return;
             }
-            operatorReply.value = "⚡ ChatGPT est en train de réfléchir...";
-            fetchRealAI(lastUserMessage);
+            operatorReply.value = "⚡ Piu AI (Gemini) réfléchit...";
+            fetchGeminiAI(lastUserMessage);
         });
 
-        // 4. L'opérateur valide et envoie la réponse finale sur Firebase
         sendOperatorBtn.addEventListener('click', () => {
             const replyText = operatorReply.value.trim();
             if(replyText !== "") {
