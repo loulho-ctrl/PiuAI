@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Support Chat Live</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Interface Opérateur (Invisible pour le client si "?client=1" est dans l'URL) */
+        #operator-panel {
+            width: 320px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        /* Mode Client Unique : Cache le panneau opérateur */
+        body.client-mode #operator-panel {
+            display: none;
+        }
+
+        /* Zone de Chat Principale */
+        #chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 10px;
+        }
+
+        #chat-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            margin: 5px 0;
+            word-wrap: break-word;
+        }
+
+        .user-msg {
+            background-color: #e1ffd4;
+            align-self: flex-end;
+        }
+
+        .ai-msg {
+            background-color: #f1f0f0;
+            align-self: flex-start;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            gap: 10px;
+        }
+
+        input[type="text"], textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { background-color: #2980b9; }
+        .ai-btn { background-color: #2ecc71; }
+        .ai-btn:hover { background-color: #27ae60; }
+    </style>
+</head>
+<body>
+
+    <div id="operator-panel">
+        <h3>🧙‍♂️ Mode Magicien (Toi)</h3>
+        <p>Client Actif : <strong id="current-target-name">En attente...</strong></p>
+
+        <hr style="border-color: #4f5d73; width: 100%;">
+
+        <label for="operator-reply">Ta réponse secrète :</label>
+        <textarea id="operator-reply" rows="4" placeholder="Tape ce que l'IA doit répondre..."></textarea>
+        
+        <button class="ai-btn" id="generate-ai-btn">🤖 Générer réponse ChatGPT</button>
+        <button id="send-operator-btn">🚀 Envoyer comme "IA"</button>
+    </div>
+
+    <div id="chat-container">
+        <div id="login-screen">
+            <h2>Bienvenue sur l'Assistant IA</h2>
+            <p>Entrez votre prénom pour commencer :</p>
+            <input type="text" id="username-input" placeholder="Votre prénom...">
+            <button id="start-chat-btn">Démarrer la conversation</button>
+        </div>
+
+        <div id="chat-screen">
+            <div id="messages"></div>
+            <div class="input-area">
+                <input type="text" id="customer-input" placeholder="Posez votre question à l'IA...">
+                <button id="send-customer-btn">Envoyer</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Tes vraies configurations Firebase intégrées :
+        const firebaseConfig = {
+            apiKey: "AIzaSyCSqcoCPrAbmC2LxCRDCKD82UlFyZRmYdY",
+            authDomain: "fakeai-fd878.firebaseapp.com",
+            databaseURL: "https://fakeai-fd878-default-rtdb.firebaseio.com",
+            projectId: "fakeai-fd878",
+            storageBucket: "fakeai-fd878.firebasestorage.app",
+            messagingSenderId: "57755076394",
+            appId: "1:57755076394:web:b43c4209665d24149e0053",
+            measurementId: "G-TM20HEFXRR"
+        };
+
+        // Initialisation de Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Variables globales de référence
+        let currentUsername = "";
+        const chatRef = ref(db, 'chat_session/messages');
+        const userRef = ref(db, 'chat_session/user');
+
+        // Éléments DOM
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const usernameInput = document.getElementById('username-input');
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const targetNameDisplay = document.getElementById('current-target-name');
+        const messagesContainer = document.getElementById('messages');
+        const customerInput = document.getElementById('customer-input');
+        const sendCustomerBtn = document.getElementById('send-customer-btn');
+        const operatorReply = document.getElementById('operator-reply');
+        const generateAiBtn = document.getElementById('generate-ai-btn');
+        const sendOperatorBtn = document.getElementById('send-operator-btn');
+
+        // Vérification de l'URL pour masquer le panneau si on est en mode client
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('client')) {
+            document.body.classList.add('client-mode');
+        }
+
+        // 1. Quand le client entre son prénom
+        startChatBtn.addEventListener('click', () => {
+            const name = usernameInput.value.trim();
+            if(name !== "") {
+                currentUsername = name;
+                set(userRef, name); // Envoi du prénom à Firebase
+                
+                loginScreen.style.display = 'none';
+                chatScreen.style.display = 'flex';
+            }
+        });
+
+        // L'opérateur reçoit le nom en direct
+        onValue(userRef, (snapshot) => {
+            const name = snapshot.val();
+            if(name) {
+                targetNameDisplay.innerText = `👤 ${name}`;
+            }
+        });
+
+        // Réception et synchronisation des messages en temps réel
+        onValue(chatRef, (snapshot) => {
+            messagesContainer.innerHTML = ""; 
+            const data = snapshot.val();
+            if(data) {
+                Object.values(data).forEach(msg => {
+                    appendMessageHtml(msg.text, msg.sender);
+                });
+            }
+        });
+
+        function appendMessageHtml(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender === 'user' ? 'user-msg' : 'ai-msg');
+            msgDiv.innerText = text;
+            messagesContainer.appendChild(msgDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 2. Le client envoie son message
+        sendCustomerBtn.addEventListener('click', () => {
+            const text = customerInput.value.trim();
+            if(text !== "") {
+                push(chatRef, {
+                    text: `${currentUsername}: ${text}`,
+                    sender: 'user',
+                    timestamp: Date.now()
+                });
+                customerInput.value = "";
+            }
+        });
+
+        // 3. L'opérateur génère une fausse réponse de type ChatGPT
+        generateAiBtn.addEventListener('click', () => {
+            const aiResponses = [
+                "Je comprends tout à fait votre demande. Laissez-moi analyser cela...",
+                "D'après mes bases de données, la meilleure solution consiste à redémarrer l'appareil.",
+                "C'est une excellente question. En tant qu'intelligence artificielle, je vous suggère de vérifier vos accès."
+            ];
+            operatorReply.value = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+        });
+
+        // 4. L'opérateur envoie la réponse finale
+        sendOperatorBtn.addEventListener('click', () => {
+            const replyText = operatorReply.value.trim();
+            if(replyText !== "") {
+                push(chatRef, {
+                    text: replyText,
+                    sender: 'ai',
+                    timestamp: Date.now()
+                });
+                operatorReply.value = "";
+            }
+        });
+    </script>
+</body>
+</html>
