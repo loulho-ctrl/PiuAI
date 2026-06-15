@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piu AI - Chat Live (Gemini)</title>
+    <title>Piu AI - Chat Live (Mistral AI)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -90,8 +90,9 @@
 
     <div id="operator-panel">
         <h3>🧙‍♂️ Mode Magicien</h3>
-        <label for="gemini-key">🔑 Ta Clé Gemini :</label>
-        <input type="password" id="gemini-key" class="api-input" placeholder="Colle ta clé ici...">
+        <label for="mistral-key">🔑 Ta Clé Mistral AI :</label>
+        <!-- Ta clé est pré-remplie ici pour te faire gagner du temps -->
+        <input type="password" id="mistral-key" class="api-input" value="lMPgW2PjMBQ2rZmdNN7pg8BsQiU3eqgs">
         
         <hr style="border-color: #4f5d73; width: 100%;">
         <p>Client Actif : <strong id="current-target-name">En attente...</strong></p>
@@ -191,49 +192,47 @@
             }
         });
 
-        // Modification ici pour accepter l'en-tête Bearer compatible clé AQ.
-        async function fetchGeminiAI(question) {
-            const apiKey = document.getElementById('gemini-key').value.trim();
-            if(!apiKey) return alert("⚠️ Clé manquante !");
+        // Fonction d'appel à Mistral AI (Envoi direct au chat Firebase)
+        async function fetchMistralAI(question) {
+            const apiKey = document.getElementById('mistral-key').value.trim();
+            if(!apiKey) return alert("⚠️ Clé Mistral manquante !");
 
             try {
-                let url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
-                let headers = { "Content-Type": "application/json" };
-
-                // Si la clé commence par AQ., on l'envoie en mode Bearer Token (Authorization)
-                if (apiKey.startsWith("AQ.")) {
-                    headers["Authorization"] = `Bearer ${apiKey}`;
-                } else {
-                    // Si jamais c'est une clé AIza classique
-                    url += `?key=${apiKey}`;
-                }
-
-                const response = await fetch(url, {
+                const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
                     method: "POST",
-                    headers: headers,
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${apiKey}`
+                    },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Tu es Piu AI, un poussin mignon. Réponds amicalement à : ${question}` }] }]
+                        model: "open-mistral-7b", // Modèle rapide, stable et gratuit
+                        messages: [
+                            { role: "system", content: "Tu es Piu AI, un petit poussin super intelligent et mignon dans sa coquille. Réponds de façon amicale, chaleureuse et utilise quelques expressions mignonnes ou emojis d'oiseaux." },
+                            { role: "user", content: question }
+                        ]
                     })
                 });
 
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error.message);
+                if(!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.message || "Erreur de réponse de l'API Mistral");
                 }
 
-                const aiText = data.candidates[0].content.parts[0].text;
+                const data = await response.json();
+                const aiText = data.choices[0].message.content;
+                
+                // Envoi direct dans la base de données Firebase pour le client
                 push(chatRef, { text: aiText, sender: 'ai', timestamp: Date.now() });
 
             } catch (error) {
                 console.error(error);
-                alert("Erreur avec la clé : " + error.message);
+                alert("Erreur avec Mistral AI : " + error.message);
             }
         }
 
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
-            if(!lastUserMessage) return alert("Pas de question reçue !");
-            fetchGeminiAI(lastUserMessage);
+            if(!lastUserMessage) return alert("Pas de question reçue de la part du client !");
+            fetchMistralAI(lastUserMessage);
         });
 
         document.getElementById('send-operator-btn').addEventListener('click', () => {
