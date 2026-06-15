@@ -5,29 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Piu AI - Chat Live (Gemini)</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f9; margin: 0; display: flex; height: 100vh; }
-        
-        /* Panneau Magicien */
-        #operator-panel { width: 320px; background-color: #2c3e50; color: white; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; overflow-y: auto; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Interface Opérateur (Invisible pour le client si "?client=1" est dans l'URL) */
+        #operator-panel {
+            width: 320px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            z-index: 10;
+        }
+
         body.client-mode #operator-panel { display: none; }
-        
-        /* Chat */
-        #chat-container { flex: 1; display: flex; flex-direction: column; background: white; }
-        #ai-header { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px; background: white; }
-        #ai-header h1 { margin: 0; font-size: 1.2rem; color: #1e293b; }
+
+        /* Zone de Chat Principale */
+        #chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            position: relative;
+        }
+
+        #ai-header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #ai-header .logo-container { font-size: 24px; }
+        #ai-header h1 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight: 700; }
+        #ai-header .status-dot { width: 8px; height: 8px; background-color: #2ecc71; border-radius: 50%; margin-left: auto; }
+
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .login-logo { width: 150px; height: 150px; font-size: 80px; display: flex; align-items: center; justify-content: center; }
         #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
-        #messages { flex: 1; padding: 20px; overflow-y: auto; background-color: #f8fafc; display: flex; flex-direction: column; gap: 10px; }
-        
-        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; }
-        .user-msg { background-color: #e1ffd4; align-self: flex-end; }
-        .ai-msg { background-color: #ffffff; border: 1px solid #e2e8f0; align-self: flex-start; }
-        
+
+        #messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: #f8fafc;
+        }
+
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
+        .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .ai-msg { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+
         .input-area { display: flex; padding: 15px; border-top: 1px solid #e2e8f0; gap: 10px; background: white; }
-        input, textarea { padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.95rem; }
-        textarea { width: 93%; height: 60px; resize: none; }
-        .api-input { background-color: #34495e; border: 1px solid #7f8c8d; color: white; width: 93%; }
-        
-        button { padding: 10px 15px; border: none; background-color: #3498db; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        input[type="text"], textarea { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
+        textarea { width: 93%; height: 80px; resize: none; }
+        .api-input { background-color: #34495e; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 5px; width: 93%; }
+
+        button { padding: 10px 20px; border: none; background-color: #3498db; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         .ai-btn { background-color: #2ecc71; }
         .ai-btn:hover { background-color: #27ae60; }
@@ -37,99 +93,113 @@
 
     <!-- PANNEAU OPÉRATEUR (Toi) -->
     <div id="operator-panel">
-        <h3>🧙‍♂️ Mode Magicien</h3>
-        <label>🔑 Ta Clé Gemini :</label>
-        <input type="password" id="gemini-key" class="api-input" placeholder="Colle ta clé AQ... ici">
+        <h3>🧙‍♂️ Mode Magicien (Toi)</h3>
         
-        <p>Client : <strong id="current-target-name">En attente...</strong></p>
+        <!-- Case pour coller ta clé Gemini brute -->
+        <label for="gemini-key">🔑 Ta Clé Gemini :</label>
+        <input type="password" id="gemini-key" class="api-input" placeholder="Colle ta clé AIzaSy... ici">
+        
         <hr style="border-color: #4f5d73; width: 100%;">
+        <p>Client Actif : <strong id="current-target-name">En attente...</strong></p>
+        <hr style="border-color: #4f5d73; width: 100%;">
+
+        <label for="operator-reply">Ta réponse secrète :</label>
+        <textarea id="operator-reply" rows="5" placeholder="L'IA mettra sa réponse ici ou écris toi-même..."></textarea>
         
-        <label>Réponse manuelle ou IA :</label>
-        <textarea id="operator-reply" placeholder="Écris un message ou laisse l'IA générer..."></textarea>
-        
-        <!-- Option 1 : Répondre soi-même -->
-        <button id="send-manual-btn">🚀 Envoyer mon message</button>
-        
-        <!-- Option 2 : Demander à l'IA d'envoyer directement -->
-        <button class="ai-btn" id="generate-ai-btn">🤖 Générer & Envoyer (IA)</button>
+        <!-- Bouton vert pour appeler l'IA -->
+        <button class="ai-btn" id="generate-ai-btn">🤖 Générer avec Piu AI (Gemini)</button>
+        <!-- Bouton bleu pour valider et envoyer au chat -->
+        <button id="send-operator-btn">🚀 Envoyer la réponse</button>
     </div>
 
     <!-- INTERFACE CLIENT -->
     <div id="chat-container">
-        <div id="ai-header">🐣 <h1>Piu AI</h1></div>
-        
-        <!-- Écran de connexion -->
-        <div id="login-screen" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:15px;">
-            <div style="font-size: 80px;">🐣</div>
+        <div id="ai-header">
+            <div class="logo-container">🐣</div>
+            <h1>Piu AI</h1>
+            <div class="status-dot"></div>
+        </div>
+
+        <div id="login-screen">
+            <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
-            <input type="text" id="username-input" placeholder="Ton prénom..." style="width: 250px;">
+            <p>Entrez votre prénom pour commencer la discussion :</p>
+            <input type="text" id="username-input" placeholder="Votre prénom...">
             <button id="start-chat-btn">Accéder au Chat</button>
         </div>
 
-        <!-- Écran du Chat -->
         <div id="chat-screen">
             <div id="messages"></div>
             <div class="input-area">
-                <input type="text" id="customer-input" placeholder="Pose ta question à Piu AI...">
+                <input type="text" id="customer-input" placeholder="Posez votre question à Piu AI...">
                 <button id="send-customer-btn">Envoyer</button>
             </div>
         </div>
     </div>
 
+    <!-- Script Firebase & Logique de l'application -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // Configuration Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCSqcoCPrAbmC2LxCRDCKD82UlFyZRmYdY",
+            authDomain: "fakeai-fd878.firebaseapp.com",
             databaseURL: "https://fakeai-fd878-default-rtdb.firebaseio.com",
-            projectId: "fakeai-fd878"
+            projectId: "fakeai-fd878",
+            storageBucket: "fakeai-fd878.firebasestorage.app",
+            messagingSenderId: "57755076394",
+            appId: "1:57755076394:web:b43c4209665d24149e0053",
+            measurementId: "G-TM20HEFXRR"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+
         let currentUsername = "";
-        let lastUserMessage = "";
+        let lastUserMessage = ""; 
         const chatRef = ref(db, 'chat_session/messages');
         const userRef = ref(db, 'chat_session/user');
 
-        const geminiKeyInput = document.getElementById('gemini-key');
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const usernameInput = document.getElementById('username-input');
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const targetNameDisplay = document.getElementById('current-target-name');
+        const messagesContainer = document.getElementById('messages');
+        const customerInput = document.getElementById('customer-input');
+        const sendCustomerBtn = document.getElementById('send-customer-btn');
         const operatorReply = document.getElementById('operator-reply');
+        const generateAiBtn = document.getElementById('generate-ai-btn');
+        const sendOperatorBtn = document.getElementById('send-operator-btn');
+        const geminiKeyInput = document.getElementById('gemini-key');
 
-        // Mode client masqué (?client=1)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('client')) { document.body.classList.add('client-mode'); }
 
-        // Connexion client
-        document.getElementById('start-chat-btn').addEventListener('click', () => {
-            const name = document.getElementById('username-input').value.trim();
-            if(name) {
+        startChatBtn.addEventListener('click', () => {
+            const name = usernameInput.value.trim();
+            if(name !== "") {
                 currentUsername = name;
                 set(userRef, name);
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('chat-screen').style.display = 'flex';
+                loginScreen.style.display = 'none';
+                chatScreen.style.display = 'flex';
             }
         });
 
-        // Afficher le nom du client chez le magicien
         onValue(userRef, (snapshot) => {
             const name = snapshot.val();
-            if(name) document.getElementById('current-target-name').innerText = `👤 ${name}`;
+            if(name) { targetNameDisplay.innerText = `👤 ${name}`; }
         });
 
-        // Charger et synchroniser les messages
         onValue(chatRef, (snapshot) => {
-            const messagesContainer = document.getElementById('messages');
-            messagesContainer.innerHTML = "";
+            messagesContainer.innerHTML = ""; 
             const data = snapshot.val();
             if(data) {
                 Object.values(data).forEach(msg => {
-                    const div = document.createElement('div');
-                    div.className = `message ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`;
-                    div.innerText = msg.text;
-                    messagesContainer.appendChild(div);
+                    appendMessageHtml(msg.text, msg.sender);
                     if(msg.sender === 'user') {
-                        // On récupère uniquement le texte après le prénom
                         lastUserMessage = msg.text.includes(':') ? msg.text.substring(msg.text.indexOf(':') + 2) : msg.text;
                     }
                 });
@@ -137,54 +207,86 @@
             }
         });
 
-        // Client envoie son message
-        document.getElementById('send-customer-btn').addEventListener('click', () => {
-            const input = document.getElementById('customer-input');
-            if(input.value.trim() !== "") {
-                push(chatRef, { text: `${currentUsername}: ${input.value.trim()}`, sender: 'user', timestamp: Date.now() });
-                input.value = "";
+        function appendMessageHtml(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender === 'user' ? 'user-msg' : 'ai-msg');
+            msgDiv.innerText = text;
+            messagesContainer.appendChild(msgDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        sendCustomerBtn.addEventListener('click', () => {
+            const text = customerInput.value.trim();
+            if(text !== "") {
+                push(chatRef, {
+                    text: `${currentUsername}: ${text}`,
+                    sender: 'user',
+                    timestamp: Date.now()
+                });
+                customerInput.value = "";
             }
         });
 
-        // OPTION 1 : Répondre soi-même manuellement
-        document.getElementById('send-manual-btn').addEventListener('click', () => {
-            const text = operatorReply.value.trim();
-            if(text) {
-                push(chatRef, { text: text, sender: 'ai', timestamp: Date.now() });
-                operatorReply.value = "";
-            }
-        });
-
-        // OPTION 2 : Appel Gemini (Nouvelle URL corrigée v1/gemini-2.5-flash)
-        document.getElementById('generate-ai-btn').addEventListener('click', async () => {
+        // 3. GENERATION AVEC GEMINI (Remplis la case uniquement)
+        async function fetchGeminiAI(question) {
             const apiKey = geminiKeyInput.value.trim();
-            if(!apiKey) return alert("N'oublie pas de coller ta clé API !");
-            if(!lastUserMessage) return alert("Le client n'a pas encore écrit.");
             
-            operatorReply.value = "⚡ Piu AI réfléchit...";
+            if(!apiKey) {
+                alert("⚠️ N'oublie pas de coller ta clé Gemini tout en haut !");
+                operatorReply.value = "";
+                return;
+            }
 
             try {
-                // Version d'API stable v1 avec le bon modèle
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                // Utilisation de la version stable v1beta avec le modèle flash classique
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Tu es Piu AI, un petit poussin trop mignon dans sa coquille. Réponds gentiment à cette question : ${lastUserMessage}` }] }]
+                        contents: [{
+                            parts: [{
+                                text: `Tu es Piu AI, un assistant virtuel représenté par un petit poussin super intelligent et mignon dans sa coquille. Réponds de façon amicale à cette question : ${question}`
+                            }]
+                        }]
                     })
                 });
 
+                if(!response.ok) {
+                    throw new Error("Erreur de l'API Gemini.");
+                }
+
                 const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
-                
                 const aiText = data.candidates[0].content.parts[0].text;
-                
-                // Envoi direct au client
-                push(chatRef, { text: aiText, sender: 'ai', timestamp: Date.now() });
-                operatorReply.value = "";
-                
-            } catch (e) {
-                alert("Erreur clé : " + e.message);
-                operatorReply.value = "";
+                operatorReply.value = aiText; // Met la réponse dans la boîte pour que tu puisses la voir
+
+            } catch (error) {
+                console.error(error);
+                alert("Erreur avec Gemini. Vérifie que ta clé AIzaSy... est correcte.");
+                operatorReply.value = "Impossible de générer une réponse.";
+            }
+        }
+
+        generateAiBtn.addEventListener('click', () => {
+            if(!lastUserMessage) {
+                alert("Le client n'a pas encore posé de question !");
+                return;
+            }
+            operatorReply.value = "⚡ Piu AI (Gemini) réfléchit...";
+            fetchGeminiAI(lastUserMessage);
+        });
+
+        // BOUTON MANUEL / VALIDATION
+        sendOperatorBtn.addEventListener('click', () => {
+            const replyText = operatorReply.value.trim();
+            if(replyText !== "" && replyText !== "⚡ Piu AI (Gemini) réfléchit...") {
+                push(chatRef, {
+                    text: replyText,
+                    sender: 'ai',
+                    timestamp: Date.now()
+                });
+                operatorReply.value = ""; // Vide la boîte
             }
         });
     </script>
