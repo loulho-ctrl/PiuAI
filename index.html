@@ -27,7 +27,7 @@
             z-index: 10;
         }
 
-        body.client-mode #operator-panel { display: none; }
+        body.client-mode #operator-panel { display: none !important; }
 
         #chat-container {
             flex: 1;
@@ -48,6 +48,8 @@
 
         #ai-header h1 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight: 700; }
         #ai-header .status-dot { width: 8px; height: 8px; background-color: #2ecc71; border-radius: 50%; margin-left: auto; }
+        #logout-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; }
+        #logout-btn:hover { background-color: #c0392b; }
 
         #client-list {
             display: flex;
@@ -80,7 +82,7 @@
             align-items: center;
             justify-content: center;
             height: 100%;
-            gap: 15px;
+            gap: 12px;
             padding: 20px;
         }
 
@@ -108,7 +110,7 @@
             padding: 10px 15px;
             border-radius: 15px;
             border: 1px solid #e2e8f0;
-            display: none; /* Caché par défaut */
+            display: none;
             gap: 5px;
             font-size: 1.2rem;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -128,13 +130,15 @@
         }
 
         .input-area { display: flex; padding: 15px; border-top: 1px solid #e2e8f0; gap: 10px; background: white; }
-        input[type="text"], textarea { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
+        input[type="text"], input[type="password"], textarea { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
+        .login-input { flex: none !important; width: 250px; }
         .api-input { background-color: #34495e; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 5px; }
 
         button { padding: 10px 20px; border: none; background-color: #3498db; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         .ai-btn { background-color: #2ecc71; }
         .ai-btn:hover { background-color: #27ae60; }
+        .login-actions { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
@@ -159,21 +163,25 @@
     <div id="chat-container">
         <div id="ai-header">
             <div class="logo-container">🐣</div>
-            <h1>Piu AI</h1>
+            <h1 id="header-title">Piu AI</h1>
+            <button id="logout-btn" style="display: none;">Déconnexion</button>
             <div class="status-dot"></div>
         </div>
 
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
-            <input type="text" id="username-input" placeholder="Votre prénom...">
-            <button id="start-chat-btn">Accéder au Chat</button>
+            <input type="text" id="username-input" class="login-input" placeholder="Nom d'utilisateur...">
+            <input type="password" id="password-input" class="login-input" placeholder="Mot de passe...">
+            <div class="login-actions">
+                <button id="login-btn">Se connecter</button>
+                <button id="register-btn" style="background-color: #2ecc71;">Créer un compte</button>
+            </div>
         </div>
 
         <div id="chat-screen">
             <div id="messages"></div>
             
-            <!-- Zone d'animation des poussins -->
             <div id="thinking-indicator" class="piu-thinking">
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
@@ -188,6 +196,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCSqcoCPrAbmC2LxCRDCKD82UlFyZRmYdY",
@@ -199,7 +208,10 @@
             appId: "1:57755076394:web:b43c4209665d24149e0053",
             measurementId: "G-TM20HEFXRR"
         };
-        const db = getDatabase(initializeApp(firebaseConfig));
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
 
         let currentUsername = "";
         let activeChatRef = null;
@@ -209,20 +221,82 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('client')) { document.body.classList.add('client-mode'); }
 
-        // CLIENT : Connexion
-        document.getElementById('start-chat-btn').addEventListener('click', () => {
-            const name = document.getElementById('username-input').value.trim();
-            if(name !== "") {
-                currentUsername = name;
+        // Utilitaire pour transformer un simple username en email fictif pour Firebase
+        function makeFakeEmail(username) {
+            return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
+        }
+
+        // Écouter le changement d'état de connexion (Gère la persistence au rechargement)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // L'utilisateur est connecté ! On extrait son pseudo depuis son email fictif
+                currentUsername = user.email.split('@')[0];
+                
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('chat-screen').style.display = 'flex';
+                document.getElementById('logout-btn').style.display = 'block';
+                document.getElementById('header-title').innerText = `Piu AI (${currentUsername})`;
                 
                 activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
                 listenToChat(activeChatRef);
+            } else {
+                // Déconnecté
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('chat-screen').style.display = 'none';
+                document.getElementById('logout-btn').style.display = 'none';
+                document.getElementById('header-title').innerText = "Piu AI";
+                if (currentListener) { currentListener(); currentListener = null; }
+                document.getElementById('messages').innerHTML = "";
             }
         });
 
-        // OPÉRATEUR : Lister les clients
+        // ACTION : Créer un compte
+        document.getElementById('register-btn').addEventListener('click', () => {
+            const name = document.getElementById('username-input').value.trim();
+            const password = document.getElementById('password-input').value.trim();
+
+            if (!name || !password) return alert("⚠️ Remplis le nom d'utilisateur et le mot de passe !");
+            if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
+
+            const fakeEmail = makeFakeEmail(name);
+
+            createUserWithEmailAndPassword(auth, fakeEmail, password)
+                .then((userCredential) => {
+                    alert("🎉 Compte créé avec succès et connecté !");
+                })
+                .catch((error) => {
+                    if (error.code === 'auth/email-already-in-use') {
+                        alert("❌ Ce nom d'utilisateur est déjà pris !");
+                    } else {
+                        alert("Erreur : " + error.message);
+                    }
+                });
+        });
+
+        // ACTION : Se connecter
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const name = document.getElementById('username-input').value.trim();
+            const password = document.getElementById('password-input').value.trim();
+
+            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+
+            const fakeEmail = makeFakeEmail(name);
+
+            signInWithEmailAndPassword(auth, fakeEmail, password)
+                .catch((error) => {
+                    alert("❌ Identifiants incorrects ou compte inexistant.");
+                });
+        });
+
+        // ACTION : Déconnexion
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            signOut(auth).then(() => {
+                document.getElementById('username-input').value = "";
+                document.getElementById('password-input').value = "";
+            });
+        });
+
+        // OPÉRATEUR : Lister les dossiers des clients
         onValue(ref(db, 'chats'), (snapshot) => {
             const listContainer = document.getElementById('client-list');
             listContainer.innerHTML = "";
@@ -276,7 +350,7 @@
             }
         });
 
-        // IA Mistral + Affichage de l'animation des poussins
+        // IA Mistral
         document.getElementById('generate-ai-btn').addEventListener('click', async () => {
             if(!activeChatRef) return alert("❌ Clique sur le nom d'un client à gauche d'abord !");
             if(!lastUserMessage) return alert("Le client n'a pas encore écrit.");
@@ -285,7 +359,6 @@
             const indicator = document.getElementById('thinking-indicator');
             const msgsContainer = document.getElementById('messages');
 
-            // 1. Afficher l'animation des poussins qui sautent
             indicator.style.display = 'flex';
             msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
@@ -308,7 +381,6 @@
             } catch (e) { 
                 alert("Erreur avec Mistral."); 
             } finally {
-                // 2. Cacher l'animation quand la réponse est reçue ou s'il y a une erreur
                 indicator.style.display = 'none';
             }
         });
