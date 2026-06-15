@@ -101,6 +101,32 @@
         .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
         .ai-msg { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
 
+        /* Animation des 3 poussins qui sautent */
+        .piu-thinking {
+            align-self: flex-start;
+            background-color: #ffffff;
+            padding: 10px 15px;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+            display: none; /* Caché par défaut */
+            gap: 5px;
+            font-size: 1.2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .piu-thinking span {
+            display: inline-block;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+
+        .piu-thinking span:nth-child(2) { animation-delay: 0.2s; }
+        .piu-thinking span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
         .input-area { display: flex; padding: 15px; border-top: 1px solid #e2e8f0; gap: 10px; background: white; }
         input[type="text"], textarea { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
         .api-input { background-color: #34495e; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 5px; }
@@ -146,6 +172,12 @@
 
         <div id="chat-screen">
             <div id="messages"></div>
+            
+            <!-- Zone d'animation des poussins -->
+            <div id="thinking-indicator" class="piu-thinking">
+                <span>🐣</span><span>🐤</span><span>🐥</span>
+            </div>
+
             <div class="input-area">
                 <input type="text" id="customer-input" placeholder="Posez votre question...">
                 <button id="send-customer-btn">Envoyer</button>
@@ -172,12 +204,12 @@
         let currentUsername = "";
         let activeChatRef = null;
         let lastUserMessage = "";
-        let currentListener = null; // Pour couper l'écoute du chat précédent
+        let currentListener = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('client')) { document.body.classList.add('client-mode'); }
 
-        // CLIENT : Connexion dans sa propre salle
+        // CLIENT : Connexion
         document.getElementById('start-chat-btn').addEventListener('click', () => {
             const name = document.getElementById('username-input').value.trim();
             if(name !== "") {
@@ -185,13 +217,12 @@
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('chat-screen').style.display = 'flex';
                 
-                // Connexion à la salle spécifique de l'utilisateur
                 activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
                 listenToChat(activeChatRef);
             }
         });
 
-        // OPÉRATEUR : Afficher et filtrer dynamiquement la liste des clients
+        // OPÉRATEUR : Lister les clients
         onValue(ref(db, 'chats'), (snapshot) => {
             const listContainer = document.getElementById('client-list');
             listContainer.innerHTML = "";
@@ -203,11 +234,9 @@
                 btn.innerText = "👤 " + name;
                 
                 btn.onclick = () => {
-                    // Supprime la classe active des autres boutons
                     document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     
-                    // Change de salle active pour l'opérateur
                     activeChatRef = ref(db, 'chats/' + name + '/messages');
                     listenToChat(activeChatRef);
                 };
@@ -215,14 +244,12 @@
             });
         });
 
-        // Fonction pour écouter une salle spécifique et nettoyer l'écran
         function listenToChat(chatRef) {
-            // Désactive l'ancien écouteur s'il y en avait un pour éviter les doublons
             if (currentListener) { currentListener(); }
 
             currentListener = onValue(chatRef, (snapshot) => {
                 const msgsContainer = document.getElementById('messages');
-                msgsContainer.innerHTML = ""; // Vide l'écran pour afficher la nouvelle discussion !
+                msgsContainer.innerHTML = ""; 
                 
                 const data = snapshot.val() || {};
                 Object.values(data).forEach(msg => {
@@ -231,7 +258,6 @@
                     div.innerText = msg.text;
                     msgsContainer.appendChild(div);
                     
-                    // On extrait le message de l'utilisateur pour l'IA
                     if(msg.sender === 'user') {
                         lastUserMessage = msg.text.includes(':') ? msg.text.substring(msg.text.indexOf(':') + 2) : msg.text;
                     }
@@ -240,7 +266,7 @@
             });
         }
 
-        // Envoi du message côté Client
+        // Envoi Client
         document.getElementById('send-customer-btn').addEventListener('click', () => {
             const input = document.getElementById('customer-input');
             const text = input.value.trim();
@@ -250,12 +276,19 @@
             }
         });
 
-        // IA Mistral (Envoie dans la salle active sélectionnée)
+        // IA Mistral + Affichage de l'animation des poussins
         document.getElementById('generate-ai-btn').addEventListener('click', async () => {
             if(!activeChatRef) return alert("❌ Clique sur le nom d'un client à gauche d'abord !");
             if(!lastUserMessage) return alert("Le client n'a pas encore écrit.");
 
             const apiKey = document.getElementById('mistral-key').value.trim();
+            const indicator = document.getElementById('thinking-indicator');
+            const msgsContainer = document.getElementById('messages');
+
+            // 1. Afficher l'animation des poussins qui sautent
+            indicator.style.display = 'flex';
+            msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
             try {
                 const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
                     method: "POST",
@@ -274,10 +307,13 @@
                 push(activeChatRef, { text: aiText, sender: 'ai', timestamp: Date.now() });
             } catch (e) { 
                 alert("Erreur avec Mistral."); 
+            } finally {
+                // 2. Cacher l'animation quand la réponse est reçue ou s'il y a une erreur
+                indicator.style.display = 'none';
             }
         });
 
-        // Envoi manuel de l'opérateur
+        // Envoi manuel
         document.getElementById('send-operator-btn').addEventListener('click', () => {
             const textarea = document.getElementById('operator-reply');
             const text = textarea.value.trim();
