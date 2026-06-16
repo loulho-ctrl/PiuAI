@@ -27,7 +27,6 @@
             z-index: 10;
         }
 
-        /* Cache TOUT le panneau opérateur uniquement si client-mode est actif */
         body.client-mode #operator-panel { display: none !important; }
 
         #chat-container {
@@ -195,7 +194,6 @@
         <div id="client-list"></div>
         <hr style="border-color: #4f5d73; width: 100%;">
 
-        <!-- Bouton Glissable Réponse Auto placé au bon endroit -->
         <div class="switch-container">
             <span>🤖 Réponse auto (IA)</span>
             <label class="switch">
@@ -260,9 +258,14 @@
             measurementId: "G-TM20HEFXRR"
         };
         
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            auth = getAuth(app);
+        } catch (e) {
+            alert("❌ Erreur d'initialisation Firebase : " + e.message);
+        }
 
         let currentUsername = "";
         let activeChatRef = null;
@@ -270,121 +273,137 @@
         let currentListener = null;
         let autoReplyEnabled = false; 
 
-        // Forcer le mode client si le paramètre est présent dans l'adresse URL
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('client')) { 
             document.body.classList.add('client-mode'); 
         }
 
-        // Écouter le changement d'état du bouton glissable
-        document.getElementById('auto-reply-toggle').addEventListener('change', (e) => {
-            autoReplyEnabled = e.target.checked;
-        });
+        const toggleBtn = document.getElementById('auto-reply-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('change', (e) => {
+                autoReplyEnabled = e.target.checked;
+            });
+        }
 
         function makeFakeEmail(username) {
             return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
         }
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUsername = user.email.split('@')[0];
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('chat-screen').style.display = 'flex';
-                document.getElementById('logout-btn').style.display = 'block';
-                document.getElementById('header-title').innerText = `Piu AI (${currentUsername})`;
-                
-                activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
-                listenToChat(activeChatRef);
-            } else {
-                document.getElementById('login-screen').style.display = 'flex';
-                document.getElementById('chat-screen').style.display = 'none';
-                document.getElementById('logout-btn').style.display = 'none';
-                document.getElementById('header-title').innerText = "Piu AI";
-                if (currentListener) { currentListener(); currentListener = null; }
-                document.getElementById('messages').innerHTML = "";
+            try {
+                if (user) {
+                    currentUsername = user.email.split('@')[0];
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('chat-screen').style.display = 'flex';
+                    document.getElementById('logout-btn').style.display = 'block';
+                    document.getElementById('header-title').innerText = `Piu AI (${currentUsername})`;
+                    
+                    activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
+                    listenToChat(activeChatRef);
+                } else {
+                    document.getElementById('login-screen').style.display = 'flex';
+                    document.getElementById('chat-screen').style.display = 'none';
+                    document.getElementById('logout-btn').style.display = 'none';
+                    document.getElementById('header-title').innerText = "Piu AI";
+                    if (currentListener) { currentListener(); currentListener = null; }
+                    document.getElementById('messages').innerHTML = "";
+                }
+            } catch (error) {
+                console.error(error);
             }
         });
 
-        // Inscription sécurisée avec alertes claires
-document.getElementById('register-btn').addEventListener('click', () => {
-    const userField = document.getElementById('username-input');
-    const passField = document.getElementById('password-input');
+        // Bouton Créer un compte
+        const registerBtn = document.getElementById('register-btn');
+        if (registerBtn) {
+            registerBtn.onclick = function() {
+                try {
+                    const name = document.getElementById('username-input').value.trim();
+                    const password = document.getElementById('password-input').value.trim();
+                    
+                    if (!name || !password) {
+                        alert("⚠️ Remplis tous les champs !");
+                        return;
+                    }
+                    if (password.length < 6) {
+                        alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
+                        return;
+                    }
 
-    if (!userField || !passField) {
-        return alert("❌ Erreur de code : Les cases 'username-input' ou 'password-input' n'existent pas dans le HTML !");
-    }
+                    createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                        .then(() => alert("🎉 Compte créé avec succès !"))
+                        .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Ce nom est déjà pris." : "Erreur: " + err.message));
+                } catch (e) {
+                    alert("❌ Problème lors du clic inscription : " + e.message);
+                }
+            };
+        }
 
-    const name = userField.value.trim();
-    const password = passField.value.trim();
+        // Bouton Se connecter
+        const loginBtn = document.getElementById('login-btn');
+        if (loginBtn) {
+            loginBtn.onclick = function() {
+                try {
+                    const name = document.getElementById('username-input').value.trim();
+                    const password = document.getElementById('password-input').value.trim();
+                    
+                    if (!name || !password) {
+                        alert("⚠️ Remplis tous les champs !");
+                        return;
+                    }
 
-    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-    if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
-
-    createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
-        .then(() => alert("🎉 Compte créé avec succès !"))
-        .catch((err) => {
-            console.error(err);
-            alert("Erreur Firebase : " + err.message);
-        });
-});
-
-// Connexion sécurisée avec alertes claires
-document.getElementById('login-btn').addEventListener('click', () => {
-    const userField = document.getElementById('username-input');
-    const passField = document.getElementById('password-input');
-
-    if (!userField || !passField) {
-        return alert("❌ Erreur de code : Les cases 'username-input' ou 'password-input' n'existent pas dans le HTML !");
-    }
-
-    const name = userField.value.trim();
-    const password = passField.value.trim();
-
-    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-
-    signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
-        .then(() => alert("🔓 Connecté !"))
-        .catch((err) => {
-            console.error(err);
-            alert("❌ Identifiants incorrects ou erreur : " + err.code);
-        });
-});
-
+                    signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                        .then(() => alert("🔓 Connecté !"))
+                        .catch((err) => alert("❌ Identifiants incorrects ou erreur."));
+                } catch (e) {
+                    alert("❌ Problème lors du clic connexion : " + e.message);
+                }
+            };
+        }
 
         // Déconnexion
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            signOut(auth).then(() => {
-                document.getElementById('username-input').value = "";
-                document.getElementById('password-input').value = "";
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                signOut(auth).then(() => {
+                    document.getElementById('username-input').value = "";
+                    document.getElementById('password-input').value = "";
+                });
             });
-        });
+        }
 
-        // Charger la liste des dossiers clients
-        onValue(ref(db, 'chats'), (snapshot) => {
-            const listContainer = document.getElementById('client-list');
-            listContainer.innerHTML = "";
-            const clients = snapshot.val() || {};
-            
-            Object.keys(clients).forEach(name => {
-                const btn = document.createElement('button');
-                btn.className = 'client-btn';
-                btn.innerText = "👤 " + name;
+        // Charger la liste des clients
+        try {
+            onValue(ref(db, 'chats'), (snapshot) => {
+                const listContainer = document.getElementById('client-list');
+                if (!listContainer) return;
+                listContainer.innerHTML = "";
+                const clients = snapshot.val() || {};
                 
-                btn.onclick = () => {
-                    document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    activeChatRef = ref(db, 'chats/' + name + '/messages');
-                    listenToChat(activeChatRef);
-                };
-                listContainer.appendChild(btn);
+                Object.keys(clients).forEach(name => {
+                    const btn = document.createElement('button');
+                    btn.className = 'client-btn';
+                    btn.innerText = "👤 " + name;
+                    
+                    btn.onclick = () => {
+                        document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        activeChatRef = ref(db, 'chats/' + name + '/messages');
+                        listenToChat(activeChatRef);
+                    };
+                    listContainer.appendChild(btn);
+                });
             });
-        });
+        } catch (e) {
+            console.error(e);
+        }
 
         function listenToChat(chatRef) {
             if (currentListener) { currentListener(); }
 
             currentListener = onValue(chatRef, (snapshot) => {
                 const msgsContainer = document.getElementById('messages');
+                if (!msgsContainer) return;
                 msgsContainer.innerHTML = ""; 
                 
                 const data = snapshot.val() || {};
@@ -402,7 +421,6 @@ document.getElementById('login-btn').addEventListener('click', () => {
                 if (lastMsg && lastMsg.sender === 'user') {
                     lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
                     
-                    // Si le Toggle Switch est activé (Vert), on lance la réponse automatique !
                     if (autoReplyEnabled) {
                         fetchMistralAI(lastUserMessage);
                     }
@@ -420,15 +438,15 @@ document.getElementById('login-btn').addEventListener('click', () => {
             }
         });
 
-        // Requête vers l'IA
+        // Requête vers l'IA avec ton nouveau System Prompt personnalisé !
         async function fetchMistralAI(question) {
             if(!activeChatRef) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
             const indicator = document.getElementById('thinking-indicator');
             const msgsContainer = document.getElementById('messages');
 
-            indicator.style.display = 'flex';
-            msgsContainer.scrollTop = msgsContainer.scrollHeight;
+            if(indicator) indicator.style.display = 'flex';
+            if(msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
             try {
                 const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -437,7 +455,10 @@ document.getElementById('login-btn').addEventListener('click', () => {
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         messages: [
-                            { role: "system", content: "Tu es Piu AI, une IA dont le logo est un poussin dans sa coquille. Reste naturelle, amicale et réponds en français. Intègre subtilement l'univers des poussins ou quelques emojis de temps en temps dans tes réponses, mais ne les spamme surtout pas et si l'utilisateur te dit bonjour, réponds-lui par une petite blague de poussin." }
+                            { 
+                                role: "system", 
+                                content: "Tu es Piu AI, une IA dont le logo est un poussin dans sa coquille. Reste naturelle, amicale et réponds en français. Intègre subtilement l'univers des poussins ou quelques emojis de temps en temps dans tes réponses, mais ne les spamme surtout pas et si l'utilisateur te dit bonjour, réponds-lui par une petite blague de poussin." 
+                            },
                             { role: "user", content: question }
                         ]
                     })
@@ -449,7 +470,7 @@ document.getElementById('login-btn').addEventListener('click', () => {
             } catch (e) { 
                 console.error("Erreur API Mistral:", e); 
             } finally {
-                indicator.style.display = 'none';
+                if(indicator) indicator.style.display = 'none';
             }
         }
 
