@@ -76,6 +76,46 @@
             background: #1abc9c;
         }
 
+        /* Style du Toggle Switch pour l'automatisation */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 5px 0;
+            background: #34495e;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #4f5d73;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #7f8c8d;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #2ecc71; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
         #login-screen {
             display: flex;
             flex-direction: column;
@@ -153,6 +193,15 @@
         <div id="client-list"></div>
         <hr style="border-color: #4f5d73; width: 100%;">
 
+        <!-- Bouton Glissable Réponse Auto -->
+        <div class="switch-container">
+            <span>🤖 Réponse auto (IA)</span>
+            <label class="switch">
+                <input type="checkbox" id="auto-reply-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
         <label for="operator-reply">Ta réponse manuelle :</label>
         <textarea id="operator-reply" rows="4" placeholder="Écris ici pour envoyer manuellement..."></textarea>
         
@@ -217,21 +266,24 @@
         let activeChatRef = null;
         let lastUserMessage = "";
         let currentListener = null;
+        let autoReplyEnabled = false; // Stocke l'état du bouton magique
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('client')) { document.body.classList.add('client-mode'); }
 
-        // Utilitaire pour transformer un simple username en email fictif pour Firebase
+        // Écouter le bouton d'automatisation
+        document.getElementById('auto-reply-toggle').addEventListener('change', (e) => {
+            autoReplyEnabled = e.target.checked;
+        });
+
         function makeFakeEmail(username) {
             return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
         }
 
-        // Écouter le changement d'état de connexion (Gère la persistence au rechargement)
+        // Gestion de la session de connexion
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // L'utilisateur est connecté ! On extrait son pseudo depuis son email fictif
                 currentUsername = user.email.split('@')[0];
-                
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('chat-screen').style.display = 'flex';
                 document.getElementById('logout-btn').style.display = 'block';
@@ -240,7 +292,6 @@
                 activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
                 listenToChat(activeChatRef);
             } else {
-                // Déconnecté
                 document.getElementById('login-screen').style.display = 'flex';
                 document.getElementById('chat-screen').style.display = 'none';
                 document.getElementById('logout-btn').style.display = 'none';
@@ -250,45 +301,29 @@
             }
         });
 
-        // ACTION : Créer un compte
+        // AUTH : Créer un compte
         document.getElementById('register-btn').addEventListener('click', () => {
             const name = document.getElementById('username-input').value.trim();
             const password = document.getElementById('password-input').value.trim();
+            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+            if (password.length < 6) return alert("⚠️ Mot de passe : 6 caractères min.");
 
-            if (!name || !password) return alert("⚠️ Remplis le nom d'utilisateur et le mot de passe !");
-            if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
-
-            const fakeEmail = makeFakeEmail(name);
-
-            createUserWithEmailAndPassword(auth, fakeEmail, password)
-                .then((userCredential) => {
-                    alert("🎉 Compte créé avec succès et connecté !");
-                })
-                .catch((error) => {
-                    if (error.code === 'auth/email-already-in-use') {
-                        alert("❌ Ce nom d'utilisateur est déjà pris !");
-                    } else {
-                        alert("Erreur : " + error.message);
-                    }
-                });
+            createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                .then(() => alert("🎉 Compte créé et connecté !"))
+                .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Déjà pris !" : err.message));
         });
 
-        // ACTION : Se connecter
+        // AUTH : Se connecter
         document.getElementById('login-btn').addEventListener('click', () => {
             const name = document.getElementById('username-input').value.trim();
             const password = document.getElementById('password-input').value.trim();
-
             if (!name || !password) return alert("⚠️ Remplis tous les champs !");
 
-            const fakeEmail = makeFakeEmail(name);
-
-            signInWithEmailAndPassword(auth, fakeEmail, password)
-                .catch((error) => {
-                    alert("❌ Identifiants incorrects ou compte inexistant.");
-                });
+            signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                .catch(() => alert("❌ Identifiants incorrects."));
         });
 
-        // ACTION : Déconnexion
+        // AUTH : Déconnexion
         document.getElementById('logout-btn').addEventListener('click', () => {
             signOut(auth).then(() => {
                 document.getElementById('username-input').value = "";
@@ -296,7 +331,7 @@
             });
         });
 
-        // OPÉRATEUR : Lister les dossiers des clients
+        // OPÉRATEUR : Liste des clients
         onValue(ref(db, 'chats'), (snapshot) => {
             const listContainer = document.getElementById('client-list');
             listContainer.innerHTML = "";
@@ -310,7 +345,6 @@
                 btn.onclick = () => {
                     document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    
                     activeChatRef = ref(db, 'chats/' + name + '/messages');
                     listenToChat(activeChatRef);
                 };
@@ -318,6 +352,7 @@
             });
         });
 
+        // Écouter le chat et déclencher l'automatisation si activée
         function listenToChat(chatRef) {
             if (currentListener) { currentListener(); }
 
@@ -326,17 +361,26 @@
                 msgsContainer.innerHTML = ""; 
                 
                 const data = snapshot.val() || {};
-                Object.values(data).forEach(msg => {
+                const messagesList = Object.values(data);
+                
+                messagesList.forEach(msg => {
                     const div = document.createElement('div');
                     div.className = `message ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`;
                     div.innerText = msg.text;
                     msgsContainer.appendChild(div);
-                    
-                    if(msg.sender === 'user') {
-                        lastUserMessage = msg.text.includes(':') ? msg.text.substring(msg.text.indexOf(':') + 2) : msg.text;
-                    }
                 });
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+                // Analyser le dernier message arrivé
+                const lastMsg = messagesList[messagesList.length - 1];
+                if (lastMsg && lastMsg.sender === 'user') {
+                    lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
+                    
+                    // Déclencheur Automatique !
+                    if (autoReplyEnabled) {
+                        fetchMistralAI(lastUserMessage);
+                    }
+                }
             });
         }
 
@@ -350,11 +394,9 @@
             }
         });
 
-        // IA Mistral
-        document.getElementById('generate-ai-btn').addEventListener('click', async () => {
-            if(!activeChatRef) return alert("❌ Clique sur le nom d'un client à gauche d'abord !");
-            if(!lastUserMessage) return alert("Le client n'a pas encore écrit.");
-
+        // Fonction universelle d'appel à Mistral AI
+        async function fetchMistralAI(question) {
+            if(!activeChatRef) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
             const indicator = document.getElementById('thinking-indicator');
             const msgsContainer = document.getElementById('messages');
@@ -369,8 +411,8 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         messages: [
-                            { role: "system", content: "Tu es Piu AI, un petit poussin super intelligent dans sa coquille. Réponds amicalement." },
-                            { role: "user", content: lastUserMessage }
+                            { role: "system", content: "Tu es Piu AI, un petit poussin super intelligent et mignon dans sa coquille. Réponds amicalement en français avec des emojis d'oiseaux." },
+                            { role: "user", content: question }
                         ]
                     })
                 });
@@ -379,13 +421,20 @@
                 
                 push(activeChatRef, { text: aiText, sender: 'ai', timestamp: Date.now() });
             } catch (e) { 
-                alert("Erreur avec Mistral."); 
+                console.error("Erreur API Mistral:", e); 
             } finally {
                 indicator.style.display = 'none';
             }
+        }
+
+        // Envoi manuel de l'IA (via bouton vert)
+        document.getElementById('generate-ai-btn').addEventListener('click', () => {
+            if(!activeChatRef) return alert("❌ Sélectionne un client d'abord !");
+            if(!lastUserMessage) return alert("Aucun message à traiter.");
+            fetchMistralAI(lastUserMessage);
         });
 
-        // Envoi manuel
+        // Envoi manuel de l'opérateur (via texte libre)
         document.getElementById('send-operator-btn').addEventListener('click', () => {
             const textarea = document.getElementById('operator-reply');
             const text = textarea.value.trim();
