@@ -27,6 +27,7 @@
             z-index: 10;
         }
 
+        /* Cache TOUT le panneau opérateur uniquement si client-mode est actif */
         body.client-mode #operator-panel { display: none !important; }
 
         #chat-container {
@@ -48,7 +49,7 @@
 
         #ai-header h1 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight: 700; }
         #ai-header .status-dot { width: 8px; height: 8px; background-color: #2ecc71; border-radius: 50%; margin-left: auto; }
-        #logout-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; }
+        #logout-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; color: white; border: none; cursor: pointer; }
         #logout-btn:hover { background-color: #c0392b; }
 
         #client-list {
@@ -81,11 +82,12 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin: 5px 0;
             background: #34495e;
             padding: 12px;
             border-radius: 8px;
             border: 1px solid #4f5d73;
+            margin-top: 5px;
+            margin-bottom: 5px;
         }
         .switch {
             position: relative;
@@ -193,7 +195,7 @@
         <div id="client-list"></div>
         <hr style="border-color: #4f5d73; width: 100%;">
 
-        <!-- Bouton Glissable Réponse Auto -->
+        <!-- Bouton Glissable Réponse Auto placé au bon endroit -->
         <div class="switch-container">
             <span>🤖 Réponse auto (IA)</span>
             <label class="switch">
@@ -266,12 +268,15 @@
         let activeChatRef = null;
         let lastUserMessage = "";
         let currentListener = null;
-        let autoReplyEnabled = false; // Stocke l'état du bouton magique
+        let autoReplyEnabled = false; 
 
+        // Forcer le mode client si le paramètre est présent dans l'adresse URL
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('client')) { document.body.classList.add('client-mode'); }
+        if (urlParams.has('client')) { 
+            document.body.classList.add('client-mode'); 
+        }
 
-        // Écouter le bouton d'automatisation
+        // Écouter le changement d'état du bouton glissable
         document.getElementById('auto-reply-toggle').addEventListener('change', (e) => {
             autoReplyEnabled = e.target.checked;
         });
@@ -280,7 +285,6 @@
             return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
         }
 
-        // Gestion de la session de connexion
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUsername = user.email.split('@')[0];
@@ -301,19 +305,19 @@
             }
         });
 
-        // AUTH : Créer un compte
+        // Inscription
         document.getElementById('register-btn').addEventListener('click', () => {
             const name = document.getElementById('username-input').value.trim();
             const password = document.getElementById('password-input').value.trim();
             if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-            if (password.length < 6) return alert("⚠️ Mot de passe : 6 caractères min.");
+            if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
 
             createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                .then(() => alert("🎉 Compte créé et connecté !"))
-                .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Déjà pris !" : err.message));
+                .then(() => alert("🎉 Compte créé avec succès !"))
+                .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Ce nom est déjà pris." : err.message));
         });
 
-        // AUTH : Se connecter
+        // Connexion
         document.getElementById('login-btn').addEventListener('click', () => {
             const name = document.getElementById('username-input').value.trim();
             const password = document.getElementById('password-input').value.trim();
@@ -323,7 +327,7 @@
                 .catch(() => alert("❌ Identifiants incorrects."));
         });
 
-        // AUTH : Déconnexion
+        // Déconnexion
         document.getElementById('logout-btn').addEventListener('click', () => {
             signOut(auth).then(() => {
                 document.getElementById('username-input').value = "";
@@ -331,7 +335,7 @@
             });
         });
 
-        // OPÉRATEUR : Liste des clients
+        // Charger la liste des dossiers clients
         onValue(ref(db, 'chats'), (snapshot) => {
             const listContainer = document.getElementById('client-list');
             listContainer.innerHTML = "";
@@ -352,7 +356,6 @@
             });
         });
 
-        // Écouter le chat et déclencher l'automatisation si activée
         function listenToChat(chatRef) {
             if (currentListener) { currentListener(); }
 
@@ -371,12 +374,11 @@
                 });
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-                // Analyser le dernier message arrivé
                 const lastMsg = messagesList[messagesList.length - 1];
                 if (lastMsg && lastMsg.sender === 'user') {
                     lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
                     
-                    // Déclencheur Automatique !
+                    // Si le Toggle Switch est activé (Vert), on lance la réponse automatique !
                     if (autoReplyEnabled) {
                         fetchMistralAI(lastUserMessage);
                     }
@@ -384,7 +386,7 @@
             });
         }
 
-        // Envoi Client
+        // Envoyer message (Client)
         document.getElementById('send-customer-btn').addEventListener('click', () => {
             const input = document.getElementById('customer-input');
             const text = input.value.trim();
@@ -394,7 +396,7 @@
             }
         });
 
-        // Fonction universelle d'appel à Mistral AI
+        // Requête vers l'IA
         async function fetchMistralAI(question) {
             if(!activeChatRef) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
@@ -411,7 +413,7 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         messages: [
-                            { role: "system", content: "Tu es Piu AI, un petit poussin super intelligent et mignon dans sa coquille. Réponds amicalement en français avec des emojis d'oiseaux." },
+                            { role: "system", content: "Tu es Piu AI, un petit poussin super intelligent dans sa coquille. Réponds amicalement en français avec des emojis d'oiseaux 🐣." },
                             { role: "user", content: question }
                         ]
                     })
@@ -427,14 +429,14 @@
             }
         }
 
-        // Envoi manuel de l'IA (via bouton vert)
+        // Déclencher l'IA manuellement (Bouton vert)
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
-            if(!activeChatRef) return alert("❌ Sélectionne un client d'abord !");
-            if(!lastUserMessage) return alert("Aucun message à traiter.");
+            if(!activeChatRef) return alert("❌ Sélectionne un client dans la liste de gauche d'abord !");
+            if(!lastUserMessage) return alert("Le client n'a pas encore envoyé de message.");
             fetchMistralAI(lastUserMessage);
         });
 
-        // Envoi manuel de l'opérateur (via texte libre)
+        // Réponse manuelle écrite à la main
         document.getElementById('send-operator-btn').addEventListener('click', () => {
             const textarea = document.getElementById('operator-reply');
             const text = textarea.value.trim();
