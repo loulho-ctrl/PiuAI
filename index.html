@@ -153,13 +153,10 @@
             outline: none;
         }
 
-        /* BOUTON FLÈCHE BLEUE STYLE GEMINI (Allongée) */
+        /* NOUVEAU BOUTON : Flèche bleue dessinée en pur CSS (Zéro bug sur Mobile) */
         .send-msg-btn {
             background-color: #d1e4ff;
             border: none;
-            color: #001d35;
-            font-size: 1.6rem;
-            font-weight: bold;
             width: 38px;
             height: 38px;
             border-radius: 50%;
@@ -167,7 +164,30 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
             transition: background-color 0.2s;
+        }
+
+        /* Dessin de la flèche pointue en CSS */
+        .send-msg-btn::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-top: 3px solid #001d35;
+            border-left: 3px solid #001d35;
+            transform: rotate(45deg);
+            position: absolute;
+            top: 11px;
+        }
+
+        /* Dessin de la ligne verticale de la flèche */
+        .send-msg-btn::after {
+            content: "";
+            width: 3px;
+            height: 14px;
+            background-color: #001d35;
+            position: absolute;
+            top: 13px;
         }
 
         .send-msg-btn:hover {
@@ -319,7 +339,8 @@
                     </div>
 
                     <input type="text" id="customer-input">
-                    <button class="send-msg-btn" id="send-customer-btn">🡩</button>
+                    
+                    <button class="send-msg-btn" id="send-customer-btn"></button>
 
                     <div class="gemini-ai-zone">
                         <button class="piu-trigger-btn" id="generate-ai-btn" title="Forcer Piu AI à répondre">🐣</button>
