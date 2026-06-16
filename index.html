@@ -28,7 +28,7 @@
             z-index: 10;
         }
 
-        /* Gestion des modes d'affichage sur le body */
+        /* Gestion dynamique des affichages selon la classe du body */
         body.client-mode #operator-panel { display: none !important; }
         body.user-mode #operator-panel { display: none !important; }
 
@@ -79,7 +79,7 @@
             background: #1abc9c;
         }
 
-        /* --- NOUVELLE BARRE DE CHAT STYLE GEMINI --- */
+        /* --- BARRE DE CHAT STYLE GEMINI --- */
         .gemini-input-wrapper {
             padding: 15px 20px;
             background: white;
@@ -101,7 +101,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        /* ZONE VERTE : Le Toggle Switch intégré à gauche de l'input */
+        /* ZONE VERTE : Le Toggle Switch intégré à gauche */
         .gemini-switch-zone {
             display: flex;
             align-items: center;
@@ -173,7 +173,6 @@
 
         .piu-trigger-btn:hover { background-color: #f7b731; transform: scale(1.05); }
 
-        /* Bouton d'envoi classique si on tape du texte */
         .send-msg-btn {
             background: none;
             border: none;
@@ -186,21 +185,14 @@
             justify-content: center;
         }
 
-        /* --- ÉCRANS DE VUE --- */
-        #login-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            gap: 12px;
-            padding: 20px;
-        }
-
-        body.admin-mode #login-screen { display: none !important; }
-
-        .login-logo { width: 150px; height: 150px; font-size: 80px; display: flex; align-items: center; justify-content: center; }
+        /* --- GESTION DES ÉCRANS --- */
+        #login-screen { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; padding: 20px; }
         #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+
+        /* Visibilité selon les modes */
+        body.admin-mode #chat-screen { display: flex; }
+        body.user-mode #login-screen { display: flex; }
+        body.client-mode #chat-screen { display: flex; }
 
         #messages {
             flex: 1;
@@ -242,10 +234,10 @@
         button { padding: 10px 20px; border: none; background-color: #3498db; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         
-        /* --- BOUTON NAVIGATEUR DE MODE (BAS DROITE) --- */
+        /* --- BOUTON DE CHANGEMENT DE MODE (BAS DROITE) --- */
         #mode-switcher-btn {
             position: absolute;
-            bottom: 20px;
+            bottom: 85px;
             right: 20px;
             width: 45px;
             height: 45px;
@@ -263,10 +255,10 @@
             border: 2px solid white;
         }
         #mode-switcher-btn:hover { transform: scale(1.1); }
-        body.client-mode #mode-switcher-btn { display: none !important; } /* Masqué en mode client unique */
+        body.client-mode #mode-switcher-btn { display: none !important; }
     </style>
 </head>
-<body class="admin-mode"> <!-- Par défaut, le Magicien démarre en admin-mode sans écran de login -->
+<body class="admin-mode">
 
     <div id="operator-panel">
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -281,12 +273,12 @@
     <div id="chat-container">
         <div id="ai-header">
             <div class="logo-container">🐣</div>
-            <h1 id="header-title">Piu AI (Console Magicien)</h1>
+            <h1 id="header-title">Piu AI (Console Admin)</h1>
             <button id="logout-btn" style="display: none;">Déconnexion</button>
             <div class="status-dot"></div>
         </div>
 
-        <!-- Écran Login (Affiché uniquement en mode Utilisateur) -->
+        <!-- Écran de Connexion (Mode Utilisateur classique) -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -298,15 +290,15 @@
             </div>
         </div>
 
-        <!-- Zone d'Écran Chat Principal -->
-        <div id="chat-screen" style="display: flex;">
+        <!-- Écran de Discussion Principal -->
+        <div id="chat-screen">
             <div id="messages"></div>
             
             <div id="thinking-indicator" class="piu-thinking">
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- NOUVELLE BARRE UNIQUE BASÉE SUR L'INTERFACE GEMINI -->
+            <!-- BARRE DE CHAT DESIGN CHIC STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -318,13 +310,11 @@
                         </label>
                     </div>
 
-                    <!-- ZONE CENTRALE : Input d'écriture libre -->
-                    <input type="text" id="customer-input" placeholder="Écris ton message ici...">
-
-                    <!-- Envoi manuel classique de l'opérateur ou du client -->
+                    <!-- ZONE CENTRALE : Input d'écriture (Placeholder dynamique) -->
+                    <input type="text" id="customer-input">
                     <button class="send-msg-btn" id="send-customer-btn">🚀</button>
 
-                    <!-- ZONE ROUGE : Déclencheur IA Forcé Poussin -->
+                    <!-- ZONE ROUGE : Déclencheur IA Poussin -->
                     <div class="gemini-ai-zone">
                         <button class="piu-trigger-btn" id="generate-ai-btn" title="Forcer Piu AI à répondre">🐣</button>
                     </div>
@@ -333,11 +323,10 @@
             </div>
         </div>
 
-        <!-- BOUTON FLOTTANT DE CHANGEMENT DE MODE (ADMIN / USER) -->
+        <!-- LE SWITCHER FLOTTANT DE MODE -->
         <div id="mode-switcher-btn">👤</div>
     </div>
 
-    <!-- SCRIPT INTACT POUR L'ÉTAPE 1 (On gèrera la logique des modes à l'étape suivante) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -354,11 +343,272 @@
             measurementId: "G-TM20HEFXRR"
         };
         
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            auth = getAuth(app);
+        } catch (e) {
+            alert("❌ Erreur Firebase : " + e.message);
+        }
 
-        // Dis-moi quand tu es prêt à injecter la logique javascript de bascule des modes !
+        let currentUsername = "AdminMagicien";
+        let activeChatRef = null;
+        let lastUserMessage = "";
+        let currentListener = null;
+        let autoReplyEnabled = false; 
+
+        // FONCTION DE GESTION DES PLACEHOLDERS DYNAMIQUES (PC vs MOBILE)
+        function updatePlaceholder() {
+            const input = document.getElementById('customer-input');
+            if (!input) return;
+            if (window.innerWidth < 600) {
+                input.placeholder = "Une question ? 🐣"; // Version courte sur smartphone
+            } else {
+                input.placeholder = "Qu'est-ce qui te trotte dans la tête ? 🐣"; // Version longue sur PC
+            }
+        }
+        window.addEventListener('resize', updatePlaceholder);
+        updatePlaceholder(); // Lancement initial
+
+        // 1. DÉTECTION ET CONFIGURATION DU MODE INITIAL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('client')) { 
+            document.body.className = "client-mode";
+            document.getElementById('header-title').innerText = "Piu AI - Espace Client";
+        } else {
+            document.body.className = "admin-mode";
+        }
+
+        // Gestion du switch Réponse Auto
+        const toggleBtn = document.getElementById('auto-reply-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('change', (e) => {
+                autoReplyEnabled = e.target.checked;
+            });
+        }
+
+        function makeFakeEmail(username) {
+            return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
+        }
+
+        // 2. GESTION DU SWITCHER DE MODE (👤 Admin -> User / 👑 User -> Admin)
+        const modeSwitcher = document.getElementById('mode-switcher-btn');
+        if (modeSwitcher) {
+            modeSwitcher.onclick = function() {
+                if (document.body.classList.contains('admin-mode')) {
+                    document.body.className = "user-mode";
+                    modeSwitcher.innerText = "👑";
+                    document.getElementById('header-title').innerText = "Piu AI";
+                    document.getElementById('messages').innerHTML = "";
+                    activeChatRef = null;
+                    auth.currentUser ? logoutBtn.style.display = 'block' : auth.onAuthStateChanged;
+                } else if (document.body.classList.contains('user-mode')) {
+                    document.body.className = "admin-mode";
+                    modeSwitcher.innerText = "👤";
+                    document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
+                    currentUsername = "AdminMagicien";
+                    document.getElementById('messages').innerHTML = "";
+                    activeChatRef = null;
+                }
+            };
+        }
+
+        // 3. SURVEILLANCE FIREBASE AUTH
+        onAuthStateChanged(auth, (user) => {
+            try {
+                if (document.body.classList.contains('user-mode')) {
+                    if (user) {
+                        currentUsername = user.email.split('@')[0];
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('chat-screen').style.display = 'flex';
+                        document.getElementById('logout-btn').style.display = 'block';
+                        document.getElementById('header-title').innerText = `Piu AI (${currentUsername})`;
+                        
+                        activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
+                        listenToChat(activeChatRef);
+                    } else {
+                        document.getElementById('login-screen').style.display = 'flex';
+                        document.getElementById('chat-screen').style.display = 'none';
+                        document.getElementById('logout-btn').style.display = 'none';
+                        document.getElementById('header-title').innerText = "Piu AI";
+                        if (currentListener) { currentListener(); currentListener = null; }
+                        document.getElementById('messages').innerHTML = "";
+                    }
+                } else if (document.body.classList.contains('client-mode') && user) {
+                    currentUsername = user.email.split('@')[0];
+                    activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
+                    listenToChat(activeChatRef);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        });
+
+        // Bouton Créer un compte
+        const registerBtn = document.getElementById('register-btn');
+        if (registerBtn) {
+            registerBtn.onclick = function() {
+                try {
+                    const name = document.getElementById('username-input').value.trim();
+                    const password = document.getElementById('password-input').value.trim();
+                    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+                    if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
+
+                    createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                        .then(() => alert("🎉 Compte créé avec succès !"))
+                        .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Ce nom est déjà pris." : "Erreur: " + err.message));
+                } catch (e) { alert(e.message); }
+            };
+        }
+
+        // Bouton Se connecter
+        const loginBtn = document.getElementById('login-btn');
+        if (loginBtn) {
+            loginBtn.onclick = function() {
+                try {
+                    const name = document.getElementById('username-input').value.trim();
+                    const password = document.getElementById('password-input').value.trim();
+                    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+
+                    signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                        .then(() => alert("🔓 Connecté !"))
+                        .catch((err) => alert("❌ Identifiants incorrects ou erreur."));
+                } catch (e) { alert(e.message); }
+            };
+        }
+
+        // Déconnexion
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                signOut(auth).then(() => {
+                    document.getElementById('username-input').value = "";
+                    document.getElementById('password-input').value = "";
+                });
+            });
+        }
+
+        // 4. CHARGEMENT DE LA LISTE DES CLIENTS (Pour le mode Admin)
+        try {
+            onValue(ref(db, 'chats'), (snapshot) => {
+                const listContainer = document.getElementById('client-list');
+                if (!listContainer) return;
+                listContainer.innerHTML = "";
+                const clients = snapshot.val() || {};
+                
+                Object.keys(clients).forEach(name => {
+                    const btn = document.createElement('button');
+                    btn.className = 'client-btn';
+                    btn.innerText = "👤 " + name;
+                    
+                    btn.onclick = () => {
+                        document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        document.getElementById('header-title').innerText = `Console Admin ➔ Chat de : ${name}`;
+                        activeChatRef = ref(db, 'chats/' + name + '/messages');
+                        listenToChat(activeChatRef);
+                    };
+                    listContainer.appendChild(btn);
+                });
+            });
+        } catch (e) { console.error(e); }
+
+        // 5. ÉCOUTE DES MESSAGES EN TEMPS RÉEL
+        function listenToChat(chatRef) {
+            if (currentListener) { currentListener(); }
+
+            currentListener = onValue(chatRef, (snapshot) => {
+                const msgsContainer = document.getElementById('messages');
+                if (!msgsContainer) return;
+                msgsContainer.innerHTML = ""; 
+                
+                const data = snapshot.val() || {};
+                const messagesList = Object.values(data);
+                
+                messagesList.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = `message ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`;
+                    div.innerText = msg.text;
+                    msgsContainer.appendChild(div);
+                });
+                msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+                const lastMsg = messagesList[messagesList.length - 1];
+                if (lastMsg && lastMsg.sender === 'user') {
+                    lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
+                    
+                    if (autoReplyEnabled) {
+                        fetchMistralAI(lastUserMessage);
+                    }
+                }
+            });
+        }
+
+        // 6. ZONE D'ENVOI UNIQUE (SANS LE PRÉFIXE OPERATEUR EN MODE ADMIN)
+        document.getElementById('send-customer-btn').addEventListener('click', () => {
+            const input = document.getElementById('customer-input');
+            const text = input.value.trim();
+            if (text !== "" && activeChatRef) {
+                const senderType = document.body.classList.contains('admin-mode') ? 'ai' : 'user';
+                // En admin-mode, le texte brut est envoyé directement comme s'il venait de l'IA
+                const displayText = document.body.classList.contains('admin-mode') ? text : `${currentUsername}: ${text}`;
+                
+                push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
+                input.value = "";
+            } else if (!activeChatRef) {
+                alert("❌ Sélectionne d'abord un dossier client dans la liste de gauche !");
+            }
+        });
+
+        document.getElementById('customer-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('send-customer-btn').click();
+            }
+        });
+
+        // 7. APPEL VERS L'IA MISTRAL
+        async function fetchMistralAI(question) {
+            if (!activeChatRef) return;
+            const apiKey = document.getElementById('mistral-key').value.trim();
+            const indicator = document.getElementById('thinking-indicator');
+            const msgsContainer = document.getElementById('messages');
+
+            if (indicator) indicator.style.display = 'flex';
+            if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+            try {
+                const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model: "open-mistral-7b",
+                        messages: [
+                            { 
+                                role: "system", 
+                                content: "Tu es Piu AI, une IA dont le logo est un poussin dans sa coquille. Reste naturelle, amicale et réponds en français. Intègre subtilement l'univers des poussins ou quelques emojis de temps en temps dans tes réponses, mais ne les spamme surtout pas et si l'utilisateur te dit bonjour, réponds-lui par une petite blague de poussin." 
+                            },
+                            { role: "user", content: question }
+                        ]
+                    })
+                });
+                const data = await response.json();
+                const aiText = data.choices[0].message.content;
+                
+                push(activeChatRef, { text: aiText, sender: 'ai', timestamp: Date.now() });
+            } catch (e) { 
+                console.error("Erreur API Mistral:", e); 
+            } finally {
+                if (indicator) indicator.style.display = 'none';
+            }
+        }
+
+        // ZONE ROUGE : Clic sur le poussin jaune 🐣 pour forcer la génération
+        document.getElementById('generate-ai-btn').addEventListener('click', () => {
+            if (!activeChatRef) return alert("❌ Sélectionne un client dans la liste de gauche d'abord !");
+            if (!lastUserMessage) return alert("Le client n'a pas encore envoyé de message à analyser.");
+            fetchMistralAI(lastUserMessage);
+        });
     </script>
 </body>
 </html>
