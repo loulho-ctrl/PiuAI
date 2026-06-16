@@ -32,6 +32,10 @@
         body.client-mode #operator-panel { display: none !important; }
         body.user-mode #operator-panel { display: none !important; }
 
+        /* SECURITY FIX : Masquer le bouton automatique (Zone Verte) et le bouton IA (Zone Rouge) en mode Client */
+        body.client-mode .gemini-switch-zone { display: none !important; }
+        body.client-mode .gemini-ai-zone { display: none !important; }
+
         #chat-container {
             flex: 1;
             display: flex;
@@ -79,7 +83,7 @@
             background: #1abc9c;
         }
 
-        /* --- BARRE DE CHAT STYLE GEMINI --- */
+        /* --- BARRE DE CHAT DESIGN CHIC STYLE GEMINI --- */
         .gemini-input-wrapper {
             padding: 15px 20px;
             background: white;
@@ -298,11 +302,11 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- BARRE DE CHAT DESIGN CHIC STYLE GEMINI -->
+            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
-                    <!-- ZONE VERTE : Interrupteur Réponse Automatique -->
+                    <!-- ZONE VERTE : Interrupteur Réponse Automatique (Invisible pour le client) -->
                     <div class="gemini-switch-zone">
                         <label class="switch">
                             <input type="checkbox" id="auto-reply-toggle">
@@ -310,11 +314,11 @@
                         </label>
                     </div>
 
-                    <!-- ZONE CENTRALE : Input d'écriture (Placeholder dynamique) -->
+                    <!-- ZONE CENTRALE : Input d'écriture -->
                     <input type="text" id="customer-input">
                     <button class="send-msg-btn" id="send-customer-btn">🚀</button>
 
-                    <!-- ZONE ROUGE : Déclencheur IA Poussin -->
+                    <!-- ZONE ROUGE : Déclencheur IA Poussin (Invisible pour le client) -->
                     <div class="gemini-ai-zone">
                         <button class="piu-trigger-btn" id="generate-ai-btn" title="Forcer Piu AI à répondre">🐣</button>
                     </div>
@@ -358,18 +362,18 @@
         let currentListener = null;
         let autoReplyEnabled = false; 
 
-        // FONCTION DE GESTION DES PLACEHOLDERS DYNAMIQUES (PC vs MOBILE)
+        // GESTION DES PLACEHOLDERS DYNAMIQUES (PC vs MOBILE)
         function updatePlaceholder() {
             const input = document.getElementById('customer-input');
             if (!input) return;
             if (window.innerWidth < 600) {
-                input.placeholder = "Une question ? 🐣"; // Version courte sur smartphone
+                input.placeholder = "Une question ? 🐣";
             } else {
-                input.placeholder = "Qu'est-ce qui te trotte dans la tête ? 🐣"; // Version longue sur PC
+                input.placeholder = "Qu'est-ce qui te trotte dans la tête ? 🐣";
             }
         }
         window.addEventListener('resize', updatePlaceholder);
-        updatePlaceholder(); // Lancement initial
+        updatePlaceholder();
 
         // 1. DÉTECTION ET CONFIGURATION DU MODE INITIAL
         const urlParams = new URLSearchParams(window.location.search);
@@ -392,7 +396,7 @@
             return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
         }
 
-        // 2. GESTION DU SWITCHER DE MODE (👤 Admin -> User / 👑 User -> Admin)
+        // 2. GESTION DU SWITCHER DE MODE
         const modeSwitcher = document.getElementById('mode-switcher-btn');
         if (modeSwitcher) {
             modeSwitcher.onclick = function() {
@@ -489,7 +493,7 @@
             });
         }
 
-        // 4. CHARGEMENT DE LA LISTE DES CLIENTS (Pour le mode Admin)
+        // 4. CHARGEMENT DE LA LISTE DES CLIENTS
         try {
             onValue(ref(db, 'chats'), (snapshot) => {
                 const listContainer = document.getElementById('client-list');
@@ -545,13 +549,12 @@
             });
         }
 
-        // 6. ZONE D'ENVOI UNIQUE (SANS LE PRÉFIXE OPERATEUR EN MODE ADMIN)
+        // 6. ZONE D'ENVOI UNIQUE
         document.getElementById('send-customer-btn').addEventListener('click', () => {
             const input = document.getElementById('customer-input');
             const text = input.value.trim();
             if (text !== "" && activeChatRef) {
                 const senderType = document.body.classList.contains('admin-mode') ? 'ai' : 'user';
-                // En admin-mode, le texte brut est envoyé directement comme s'il venait de l'IA
                 const displayText = document.body.classList.contains('admin-mode') ? text : `${currentUsername}: ${text}`;
                 
                 push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
@@ -603,7 +606,7 @@
             }
         }
 
-        // ZONE ROUGE : Clic sur le poussin jaune 🐣 pour forcer la génération
+        // Clic sur le poussin jaune 🐣 pour forcer la génération
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
             if (!activeChatRef) return alert("❌ Sélectionne un client dans la liste de gauche d'abord !");
             if (!lastUserMessage) return alert("Le client n'a pas encore envoyé de message à analyser.");
