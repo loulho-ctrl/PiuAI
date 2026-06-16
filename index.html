@@ -305,27 +305,51 @@
             }
         });
 
-        // Inscription
-        document.getElementById('register-btn').addEventListener('click', () => {
-            const name = document.getElementById('username-input').value.trim();
-            const password = document.getElementById('password-input').value.trim();
-            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-            if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
+        // Inscription sécurisée avec alertes claires
+document.getElementById('register-btn').addEventListener('click', () => {
+    const userField = document.getElementById('username-input');
+    const passField = document.getElementById('password-input');
 
-            createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                .then(() => alert("🎉 Compte créé avec succès !"))
-                .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Ce nom est déjà pris." : err.message));
+    if (!userField || !passField) {
+        return alert("❌ Erreur de code : Les cases 'username-input' ou 'password-input' n'existent pas dans le HTML !");
+    }
+
+    const name = userField.value.trim();
+    const password = passField.value.trim();
+
+    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+    if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
+
+    createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
+        .then(() => alert("🎉 Compte créé avec succès !"))
+        .catch((err) => {
+            console.error(err);
+            alert("Erreur Firebase : " + err.message);
         });
+});
 
-        // Connexion
-        document.getElementById('login-btn').addEventListener('click', () => {
-            const name = document.getElementById('username-input').value.trim();
-            const password = document.getElementById('password-input').value.trim();
-            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+// Connexion sécurisée avec alertes claires
+document.getElementById('login-btn').addEventListener('click', () => {
+    const userField = document.getElementById('username-input');
+    const passField = document.getElementById('password-input');
 
-            signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                .catch(() => alert("❌ Identifiants incorrects."));
+    if (!userField || !passField) {
+        return alert("❌ Erreur de code : Les cases 'username-input' ou 'password-input' n'existent pas dans le HTML !");
+    }
+
+    const name = userField.value.trim();
+    const password = passField.value.trim();
+
+    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+
+    signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
+        .then(() => alert("🔓 Connecté !"))
+        .catch((err) => {
+            console.error(err);
+            alert("❌ Identifiants incorrects ou erreur : " + err.code);
         });
+});
+
 
         // Déconnexion
         document.getElementById('logout-btn').addEventListener('click', () => {
