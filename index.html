@@ -32,7 +32,7 @@
         body.client-mode #operator-panel { display: none !important; }
         body.user-mode #operator-panel { display: none !important; }
 
-        /* SECURITY FIX : Masquer le bouton automatique (Zone Verte) et le bouton IA (Zone Rouge) en mode Client */
+        /* SÉCURITÉ : Masquer les contrôles de l'IA pour les clients */
         body.client-mode .gemini-switch-zone { display: none !important; }
         body.client-mode .gemini-ai-zone { display: none !important; }
 
@@ -83,7 +83,7 @@
             background: #1abc9c;
         }
 
-        /* --- BARRE DE CHAT DESIGN CHIC STYLE GEMINI --- */
+        /* --- BARRE DE CHAT DESIGN STYLE GEMINI --- */
         .gemini-input-wrapper {
             padding: 15px 20px;
             background: white;
@@ -142,7 +142,7 @@
         input:checked + .slider { background-color: #2ecc71; }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* ZONE CENTRALE : Champ d'écriture libre */
+        /* ZONE CENTRALE : Champ d'écriture */
         .gemini-input-bar input[type="text"] {
             flex: 1;
             border: none;
@@ -151,6 +151,27 @@
             font-size: 1rem;
             color: #1e293b;
             outline: none;
+        }
+
+        /* BOUTON FLÈCHE BLEUE STYLE GEMINI (Allongée) */
+        .send-msg-btn {
+            background-color: #d1e4ff;
+            border: none;
+            color: #001d35;
+            font-size: 1.6rem;
+            font-weight: bold;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .send-msg-btn:hover {
+            background-color: #aecffc;
         }
 
         /* ZONE ROUGE : Bouton Poussin IA à droite */
@@ -177,23 +198,10 @@
 
         .piu-trigger-btn:hover { background-color: #f7b731; transform: scale(1.05); }
 
-        .send-msg-btn {
-            background: none;
-            border: none;
-            color: #3498db;
-            font-size: 1.3rem;
-            cursor: pointer;
-            padding: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
         /* --- GESTION DES ÉCRANS --- */
         #login-screen { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; padding: 20px; }
         #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
 
-        /* Visibilité selon les modes */
         body.admin-mode #chat-screen { display: flex; }
         body.user-mode #login-screen { display: flex; }
         body.client-mode #chat-screen { display: flex; }
@@ -282,7 +290,6 @@
             <div class="status-dot"></div>
         </div>
 
-        <!-- Écran de Connexion (Mode Utilisateur classique) -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -294,7 +301,6 @@
             </div>
         </div>
 
-        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -302,11 +308,9 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
-                    <!-- ZONE VERTE : Interrupteur Réponse Automatique (Invisible pour le client) -->
                     <div class="gemini-switch-zone">
                         <label class="switch">
                             <input type="checkbox" id="auto-reply-toggle">
@@ -314,11 +318,9 @@
                         </label>
                     </div>
 
-                    <!-- ZONE CENTRALE : Input d'écriture -->
                     <input type="text" id="customer-input">
-                    <button class="send-msg-btn" id="send-customer-btn">🚀</button>
+                    <button class="send-msg-btn" id="send-customer-btn">🡩</button>
 
-                    <!-- ZONE ROUGE : Déclencheur IA Poussin (Invisible pour le client) -->
                     <div class="gemini-ai-zone">
                         <button class="piu-trigger-btn" id="generate-ai-btn" title="Forcer Piu AI à répondre">🐣</button>
                     </div>
@@ -327,7 +329,6 @@
             </div>
         </div>
 
-        <!-- LE SWITCHER FLOTTANT DE MODE -->
         <div id="mode-switcher-btn">👤</div>
     </div>
 
