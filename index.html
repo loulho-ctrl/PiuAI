@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piu AI - Dashboard Multi-Client</title>
+    <title>Piu AI - Multi-Chats</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -14,9 +14,9 @@
             overflow: hidden;
         }
 
-        /* --- PANNEAU OPÉRATEUR (GAUCHE) --- */
-        #operator-panel {
-            width: 320px;
+        /* --- PANNEAUX LATÉRAUX (GAUCHE) --- */
+        .sidebar {
+            width: 300px;
             background-color: #2c3e50;
             color: white;
             padding: 20px;
@@ -28,16 +28,20 @@
             z-index: 10;
         }
 
-        /* Gestion dynamique des affichages selon la classe du body */
-        body.client-mode #operator-panel { display: none !important; }
-        body.user-mode #operator-panel { display: none !important; }
+        /* Affichage dynamique des panneaux selon le mode */
+        #operator-panel { display: none; }
+        #user-panel { display: none; }
+
+        body.admin-mode #operator-panel { display: flex; }
+        body.user-mode #user-panel { display: flex; }
+        body.client-mode #user-panel { display: flex; } /* Le client voit ses propres chats */
 
         /* SÉCURITÉ : Masquer les contrôles de l'IA pour les clients */
         body.client-mode .gemini-switch-zone { display: none !important; }
         body.client-mode .gemini-ai-zone { display: none !important; }
 
-        /* Barre de recherche d'utilisateurs */
-        .search-user-input {
+        /* Inputs de la sidebar */
+        .sidebar-input {
             width: 90%;
             padding: 10px;
             border-radius: 6px;
@@ -47,9 +51,7 @@
             font-size: 0.9rem;
             outline: none;
         }
-        .search-user-input::placeholder {
-            color: #bdc3c7;
-        }
+        .sidebar-input::placeholder { color: #bdc3c7; }
 
         #chat-container {
             flex: 1;
@@ -73,14 +75,15 @@
         #logout-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 0.8rem; border-radius: 5px; color: white; border: none; cursor: pointer; }
         #logout-btn:hover { background-color: #c0392b; }
 
-        #client-list {
+        .list-container {
             display: flex;
             flex-direction: column;
             gap: 8px;
             margin-top: 5px;
         }
 
-        .client-btn {
+        /* Boutons de navigation */
+        .nav-btn {
             display: block;
             width: 100%;
             padding: 12px;
@@ -91,12 +94,32 @@
             cursor: pointer;
             text-align: left;
             font-weight: bold;
-            transition: background 0.2s;
+            transition: background 0.2s, padding-left 0.2s;
         }
+        .nav-btn:hover, .nav-btn.active { background: #1abc9c; }
 
-        .client-btn:hover, .client-btn.active {
-            background: #1abc9c;
+        /* Style spécifique pour les sous-chats chez l'admin */
+        .thread-btn {
+            background: #2c3e50;
+            border-left: 3px solid #3498db;
+            font-size: 0.85rem;
+            padding: 8px 12px;
+            margin-left: 15px;
+            width: calc(100% - 15px);
         }
+        .thread-btn:hover, .thread-btn.active { background: #34495e; border-left-color: #1abc9c; }
+
+        .add-chat-btn {
+            background-color: #2ecc71;
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+        .add-chat-btn:hover { background-color: #27ae60; }
 
         /* --- BARRE DE CHAT DESIGN STYLE GEMINI --- */
         .gemini-input-wrapper {
@@ -120,115 +143,26 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        /* ZONE VERTE : Le Toggle Switch intégré à gauche */
-        .gemini-switch-zone {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px;
-        }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 42px;
-            height: 22px;
-        }
+        .gemini-switch-zone { display: flex; align-items: center; justify-content: center; padding: 2px; }
+        .switch { position: relative; display: inline-block; width: 42px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #bdc3c7;
-            transition: .4s;
-            border-radius: 22px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #bdc3c7; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #2ecc71; }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* ZONE CENTRALE : Champ d'écriture */
-        .gemini-input-bar input[type="text"] {
-            flex: 1;
-            border: none;
-            background: transparent;
-            padding: 10px 4px;
-            font-size: 1rem;
-            color: #1e293b;
-            outline: none;
-        }
+        .gemini-input-bar input[type="text"] { flex: 1; border: none; background: transparent; padding: 10px 4px; font-size: 1rem; color: #1e293b; outline: none; }
 
-        /* BOUTON : Flèche bleue dessinée en pur CSS */
         .send-msg-btn {
-            background-color: #d1e4ff;
-            border: none;
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            transition: background-color 0.2s;
+            background-color: #d1e4ff; border: none; width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; position: relative; transition: background-color 0.2s;
         }
+        .send-msg-btn::before { content: ""; width: 10px; height: 10px; border-top: 3px solid #001d35; border-left: 3px solid #001d35; transform: rotate(45deg); position: absolute; top: 11px; }
+        .send-msg-btn::after { content: ""; width: 3px; height: 14px; background-color: #001d35; position: absolute; top: 13px; }
+        .send-msg-btn:hover { background-color: #aecffc; }
 
-        .send-msg-btn::before {
-            content: "";
-            width: 10px;
-            height: 10px;
-            border-top: 3px solid #001d35;
-            border-left: 3px solid #001d35;
-            transform: rotate(45deg);
-            position: absolute;
-            top: 11px;
-        }
-
-        .send-msg-btn::after {
-            content: "";
-            width: 3px;
-            height: 14px;
-            background-color: #001d35;
-            position: absolute;
-            top: 13px;
-        }
-
-        .send-msg-btn:hover {
-            background-color: #aecffc;
-        }
-
-        /* ZONE ROUGE : Bouton Poussin IA à droite */
-        .gemini-ai-zone {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .piu-trigger-btn {
-            background-color: #ffda79;
-            border: none;
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 1.2rem;
-            transition: transform 0.1s ease, background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
+        .gemini-ai-zone { display: flex; align-items: center; justify-content: center; }
+        .piu-trigger-btn { background-color: #ffda79; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; transition: transform 0.1s ease, background-color 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .piu-trigger-btn:hover { background-color: #f7b731; transform: scale(1.05); }
 
         /* --- GESTION DES ÉCRANS --- */
@@ -239,39 +173,17 @@
         body.user-mode #login-screen { display: flex; }
         body.client-mode #chat-screen { display: flex; }
 
-        #messages {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            background-color: #f8fafc;
-        }
-
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; }
         .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
         .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
         .ai-msg { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
 
-        .piu-thinking {
-            align-self: flex-start;
-            background-color: #ffffff;
-            padding: 10px 15px;
-            border-radius: 15px;
-            border: 1px solid #e2e8f0;
-            display: none;
-            gap: 5px;
-            font-size: 1.2rem;
-        }
-
+        .piu-thinking { align-self: flex-start; background-color: #ffffff; padding: 10px 15px; border-radius: 15px; border: 1px solid #e2e8f0; display: none; gap: 5px; font-size: 1.2rem; }
         .piu-thinking span { display: inline-block; animation: bounce 1.2s infinite ease-in-out; }
         .piu-thinking span:nth-child(2) { animation-delay: 0.2s; }
         .piu-thinking span:nth-child(3) { animation-delay: 0.4s; }
 
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
         .login-input { width: 250px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; }
         .api-input { background-color: #34495e; border: 1px solid #7f8c8d; color: white; padding: 8px; border-radius: 5px; }
@@ -279,25 +191,10 @@
         button { padding: 10px 20px; border: none; background-color: #3498db; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         
-        /* --- BOUTON DE CHANGEMENT DE MODE (BAS DROITE) --- */
         #mode-switcher-btn {
-            position: absolute;
-            bottom: 85px;
-            right: 20px;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background-color: #2c3e50;
-            color: white;
-            font-size: 1.3rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            cursor: pointer;
-            z-index: 100;
-            transition: transform 0.2s;
-            border: 2px solid white;
+            position: absolute; bottom: 85px; right: 20px; width: 45px; height: 45px; border-radius: 50%;
+            background-color: #2c3e50; color: white; font-size: 1.3rem; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; z-index: 100; transition: transform 0.2s; border: 2px solid white;
         }
         #mode-switcher-btn:hover { transform: scale(1.1); }
         body.client-mode #mode-switcher-btn { display: none !important; }
@@ -305,7 +202,8 @@
 </head>
 <body class="admin-mode">
 
-    <div id="operator-panel">
+    <!-- 1. PANNEAU ADMIN -->
+    <div id="operator-panel" class="sidebar">
         <h3>🧙‍♂️ Mode Magicien</h3>
         <label for="mistral-key">🔑 Ta Clé Mistral AI :</label>
         <input type="password" id="mistral-key" class="api-input" value="lMPgW2PjMBQ2rZmdNN7pg8BsQiU3eqgs" style="width: 90%;">
@@ -313,10 +211,17 @@
         <hr style="border-color: #4f5d73; width: 100%;">
         
         <h4>🔍 Rechercher un utilisateur :</h4>
-        <input type="text" id="search-user-bar" class="search-user-input" placeholder="Taper un nom...">
+        <input type="text" id="search-user-bar" class="sidebar-input" placeholder="Taper un nom...">
 
-        <h4>Clients actifs :</h4>
-        <div id="client-list"></div>
+        <h4>Clients & Conversations :</h4>
+        <div id="client-list" class="list-container"></div>
+    </div>
+
+    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
+    <div id="user-panel" class="sidebar">
+        <h3>💬 Mes Discussions</h3>
+        <button id="add-new-chat-btn" class="add-chat-btn">➕ Nouveau chat</button>
+        <div id="user-threads-list" class="list-container"></div>
     </div>
 
     <div id="chat-container">
@@ -327,6 +232,7 @@
             <div class="status-dot"></div>
         </div>
 
+        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -338,6 +244,7 @@
             </div>
         </div>
 
+        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -345,6 +252,7 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
+            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -399,22 +307,20 @@
         let lastUserMessage = "";
         let currentListener = null;
         let autoReplyEnabled = false; 
-        let allClientsList = []; // Stockage global pour le filtrage local rapide
+        let allRawData = {}; // Stockage global de Firebase pour l'admin
+        let selectedAdminUser = null; // Utilisateur déplié chez l'admin
+        let currentActiveThreadId = null; // ID de la discussion active
 
-        // GESTION DES PLACEHOLDERS DYNAMIQUES (PC vs MOBILE)
+        // Gestion Placeholder
         function updatePlaceholder() {
             const input = document.getElementById('customer-input');
             if (!input) return;
-            if (window.innerWidth < 600) {
-                input.placeholder = "Une question ? 🐣";
-            } else {
-                input.placeholder = "Qu'est-ce qui te trotte dans la tête ? 🐣";
-            }
+            input.placeholder = window.innerWidth < 600 ? "Une question ? 🐣" : "Qu'est-ce qui te trotte dans la tête ? 🐣";
         }
         window.addEventListener('resize', updatePlaceholder);
         updatePlaceholder();
 
-        // 1. DÉTECTION ET CONFIGURATION DU MODE INITIAL
+        // Mode Initial
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('client')) { 
             document.body.className = "client-mode";
@@ -423,160 +329,193 @@
             document.body.className = "admin-mode";
         }
 
-        // Gestion du switch Réponse Auto
-        const toggleBtn = document.getElementById('auto-reply-toggle');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('change', (e) => {
-                autoReplyEnabled = e.target.checked;
-            });
-        }
+        document.getElementById('auto-reply-toggle').addEventListener('change', (e) => {
+            autoReplyEnabled = e.target.checked;
+        });
 
         function makeFakeEmail(username) {
             return username.toLowerCase().replace(/[^a-z0-9]/g, "") + "@piuai.local";
         }
 
-        // 2. GESTION DU SWITCHER DE MODE
+        // Switcher de mode flottant
         const modeSwitcher = document.getElementById('mode-switcher-btn');
         if (modeSwitcher) {
             modeSwitcher.onclick = function() {
+                // reset views
+                document.getElementById('messages').innerHTML = "";
+                activeChatRef = null;
+                currentActiveThreadId = null;
+
                 if (document.body.classList.contains('admin-mode')) {
                     document.body.className = "user-mode";
                     modeSwitcher.innerText = "👑";
                     document.getElementById('header-title').innerText = "Piu AI";
-                    document.getElementById('messages').innerHTML = "";
-                    activeChatRef = null;
                     auth.currentUser ? logoutBtn.style.display = 'block' : auth.onAuthStateChanged;
                 } else if (document.body.classList.contains('user-mode')) {
                     document.body.className = "admin-mode";
                     modeSwitcher.innerText = "👤";
                     document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
                     currentUsername = "AdminMagicien";
-                    document.getElementById('messages').innerHTML = "";
-                    activeChatRef = null;
                 }
             };
         }
 
-        // 3. SURVEILLANCE FIREBASE AUTH
+        // Écoute Auth
         onAuthStateChanged(auth, (user) => {
-            try {
-                if (document.body.classList.contains('user-mode')) {
-                    if (user) {
-                        currentUsername = user.email.split('@')[0];
-                        document.getElementById('login-screen').style.display = 'none';
-                        document.getElementById('chat-screen').style.display = 'flex';
-                        document.getElementById('logout-btn').style.display = 'block';
-                        document.getElementById('header-title').innerText = `Piu AI (${currentUsername})`;
-                        
-                        activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
-                        listenToChat(activeChatRef);
-                    } else {
-                        document.getElementById('login-screen').style.display = 'flex';
-                        document.getElementById('chat-screen').style.display = 'none';
-                        document.getElementById('logout-btn').style.display = 'none';
-                        document.getElementById('header-title').innerText = "Piu AI";
-                        if (currentListener) { currentListener(); currentListener = null; }
-                        document.getElementById('messages').innerHTML = "";
-                    }
-                } else if (document.body.classList.contains('client-mode') && user) {
+            if ((document.body.classList.contains('user-mode') || document.body.classList.contains('client-mode'))) {
+                if (user) {
                     currentUsername = user.email.split('@')[0];
-                    activeChatRef = ref(db, 'chats/' + currentUsername + '/messages');
-                    listenToChat(activeChatRef);
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('chat-screen').style.display = 'flex';
+                    document.getElementById('logout-btn').style.display = 'block';
+                    document.getElementById('header-title').innerText = `Piu AI (${currentUsername})`;
+                    
+                    // Écouter les chats de cet utilisateur précis
+                    listenToUserThreads(currentUsername);
+                } else {
+                    document.getElementById('login-screen').style.display = 'flex';
+                    document.getElementById('chat-screen').style.display = 'none';
+                    document.getElementById('logout-btn').style.display = 'none';
+                    document.getElementById('header-title').innerText = "Piu AI";
+                    document.getElementById('user-threads-list').innerHTML = "";
                 }
-            } catch (error) {
-                console.error(error);
             }
         });
 
-        // Bouton Créer un compte
-        const registerBtn = document.getElementById('register-btn');
-        if (registerBtn) {
-            registerBtn.onclick = function() {
-                try {
-                    const name = document.getElementById('username-input').value.trim();
-                    const password = document.getElementById('password-input').value.trim();
-                    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-                    if (password.length < 6) return alert("⚠️ Le mot de passe doit faire au moins 6 caractères.");
+        // Boutons Auth
+        document.getElementById('register-btn').onclick = function() {
+            const name = document.getElementById('username-input').value.trim();
+            const password = document.getElementById('password-input').value.trim();
+            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+            createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                .then(() => alert("🎉 Compte créé !"))
+                .catch((err) => alert("Erreur: " + err.message));
+        };
 
-                    createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                        .then(() => alert("🎉 Compte créé avec succès !"))
-                        .catch((err) => alert(err.code === 'auth/email-already-in-use' ? "❌ Ce nom est déjà pris." : "Erreur: " + err.message));
-                } catch (e) { alert(e.message); }
-            };
-        }
+        document.getElementById('login-btn').onclick = function() {
+            const name = document.getElementById('username-input').value.trim();
+            const password = document.getElementById('password-input').value.trim();
+            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+            signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
+                .then(() => alert("🔓 Connecté !"))
+                .catch(() => alert("❌ Identifiants incorrects."));
+        };
 
-        // Bouton Se connecter
-        const loginBtn = document.getElementById('login-btn');
-        if (loginBtn) {
-            loginBtn.onclick = function() {
-                try {
-                    const name = document.getElementById('username-input').value.trim();
-                    const password = document.getElementById('password-input').value.trim();
-                    if (!name || !password) return alert("⚠️ Remplis tous les champs !");
+        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-                    signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                        .then(() => alert("🔓 Connecté !"))
-                        .catch((err) => alert("❌ Identifiants incorrects ou erreur."));
-                } catch (e) { alert(e.message); }
-            };
-        }
 
-        // Déconnexion
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                signOut(auth).then(() => {
-                    document.getElementById('username-input').value = "";
-                    document.getElementById('password-input').value = "";
+        // --- MODE UTILISATEUR / CLIENT : GESTION DES FILS DE CHAT ---
+        function listenToUserThreads(username) {
+            onValue(ref(db, `chats/${username}/threads`), (snapshot) => {
+                const threads = snapshot.val() || {};
+                const listContainer = document.getElementById('user-threads-list');
+                listContainer.innerHTML = "";
+
+                const threadIds = Object.keys(threads);
+
+                // Si l'utilisateur n'a aucun chat, on lui en crée un d'office
+                if (threadIds.length === 0) {
+                    createNewThread(username);
+                    return;
+                }
+
+                threadIds.forEach((id, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = `nav-btn ${currentActiveThreadId === id ? 'active' : ''}`;
+                    btn.innerText = `💬 Conversation n°${index + 1}`;
+                    btn.onclick = () => {
+                        currentActiveThreadId = id;
+                        activeChatRef = ref(db, `chats/${username}/threads/${id}/messages`);
+                        document.querySelectorAll('#user-threads-list .nav-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        listenToMessages(activeChatRef);
+                    };
+                    listContainer.appendChild(btn);
                 });
+
+                // Activer le premier chat par défaut si aucun n'est sélectionné
+                if (!currentActiveThreadId && threadIds.length > 0) {
+                    listContainer.firstChild.click();
+                }
             });
         }
 
-        // Fonction pour afficher le HTML des boutons clients filtrés ou non
-        function renderClientList(listToDisplay) {
+        function createNewThread(username) {
+            const newThreadRef = push(ref(db, `chats/${username}/threads`));
+            currentActiveThreadId = newThreadRef.key;
+            // Message de bienvenue initial facultatif
+            push(ref(db, `chats/${username}/threads/${currentActiveThreadId}/messages`), {
+                text: "Bonjour ! Comment puis-je t'aider aujourd'hui ? 🐣",
+                sender: "ai",
+                timestamp: Date.now()
+            });
+        }
+
+        document.getElementById('add-new-chat-btn').onclick = () => {
+            if (currentUsername) createNewThread(currentUsername);
+        };
+
+
+        // --- MODE ADMIN : RECHERCHE ET NAVIGATION INTER-CHATS ---
+        function renderAdminPanel() {
             const listContainer = document.getElementById('client-list');
             if (!listContainer) return;
             listContainer.innerHTML = "";
-            
-            listToDisplay.forEach(name => {
-                const btn = document.createElement('button');
-                btn.className = 'client-btn';
-                btn.innerText = "👤 " + name;
+
+            const searchTerm = document.getElementById('search-user-bar').value.toLowerCase().trim();
+            const users = Object.keys(allRawData);
+
+            users.filter(name => name.toLowerCase().includes(searchTerm)).forEach(name => {
+                // Bouton Utilisateur Principal
+                const userBtn = document.createElement('button');
+                userBtn.className = `nav-btn ${selectedAdminUser === name ? 'active' : ''}`;
+                userBtn.innerText = "👤 " + name;
                 
-                btn.onclick = () => {
-                    document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    document.getElementById('header-title').innerText = `Console Admin ➔ Chat de : ${name}`;
-                    activeChatRef = ref(db, 'chats/' + name + '/messages');
-                    listenToChat(activeChatRef);
+                userBtn.onclick = () => {
+                    selectedAdminUser = (selectedAdminUser === name) ? null : name; // Toggle dépliage
+                    renderAdminPanel();
                 };
-                listContainer.appendChild(btn);
+                listContainer.appendChild(userBtn);
+
+                // Si cet utilisateur est sélectionné, on affiche ses sous-chats (threads)
+                if (selectedAdminUser === name) {
+                    const threads = allRawData[name].threads || {};
+                    Object.keys(threads).forEach((threadId, index) => {
+                        const threadBtn = document.createElement('button');
+                        threadBtn.className = `nav-btn thread-btn ${currentActiveThreadId === threadId ? 'active' : ''}`;
+                        threadBtn.innerText = `📄 Chat n°${index + 1}`;
+                        
+                        threadBtn.onclick = (e) => {
+                            e.stopPropagation(); // Évite de refermer le menu
+                            currentActiveThreadId = threadId;
+                            document.getElementById('header-title').innerText = `Admin ➔ ${name} (Chat ${index + 1})`;
+                            activeChatRef = ref(db, `chats/${name}/threads/${threadId}/messages`);
+                            
+                            document.querySelectorAll('.thread-btn').forEach(b => b.classList.remove('active'));
+                            threadBtn.classList.add('active');
+                            
+                            listenToMessages(activeChatRef);
+                        };
+                        listContainer.appendChild(threadBtn);
+                    });
+                }
             });
         }
 
-        // 4. CHARGEMENT INITIAL ET ÉCOUTE DE LA LISTE DES CLIENTS
-        try {
-            onValue(ref(db, 'chats'), (snapshot) => {
-                const clients = snapshot.val() || {};
-                allClientsList = Object.keys(clients); // Met à jour la mémoire globale
-                
-                // On applique le filtre s'il y a déjà du texte écrit dans la barre
-                const currentSearchTerm = document.getElementById('search-user-bar').value.toLowerCase().trim();
-                const filtered = allClientsList.filter(name => name.toLowerCase().includes(currentSearchTerm));
-                renderClientList(filtered);
-            });
-        } catch (e) { console.error(e); }
-
-        // Événement d'écriture dans la barre de recherche (Filtre dynamique local)
-        document.getElementById('search-user-bar').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            const filtered = allClientsList.filter(name => name.toLowerCase().includes(searchTerm));
-            renderClientList(filtered);
+        // Écouter tous les changements de la DB pour l'admin
+        onValue(ref(db, 'chats'), (snapshot) => {
+            allRawData = snapshot.val() || {};
+            if (document.body.classList.contains('admin-mode')) {
+                renderAdminPanel();
+            }
         });
 
-        // 5. ÉCOUTE DES MESSAGES EN TEMPS RÉEL
-        function listenToChat(chatRef) {
-            if (currentListener) { currentListener(); }
+        document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
+
+
+        // --- ÉCOUTE DES MESSAGES D'UN CHAT CONFIGURÉ ---
+        function listenToMessages(chatRef) {
+            if (currentListener) currentListener(); // Stop l'ancienne écoute
 
             currentListener = onValue(chatRef, (snapshot) => {
                 const msgsContainer = document.getElementById('messages');
@@ -597,36 +536,32 @@
                 const lastMsg = messagesList[messagesList.length - 1];
                 if (lastMsg && lastMsg.sender === 'user') {
                     lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
-                    
-                    if (autoReplyEnabled) {
-                        fetchMistralAI(lastUserMessage);
-                    }
+                    if (autoReplyEnabled) fetchMistralAI(lastUserMessage);
                 }
             });
         }
 
-        // 6. ZONE D'ENVOI UNIQUE
+        // Envoi de messages
         document.getElementById('send-customer-btn').addEventListener('click', () => {
             const input = document.getElementById('customer-input');
             const text = input.value.trim();
             if (text !== "" && activeChatRef) {
-                const senderType = document.body.classList.contains('admin-mode') ? 'ai' : 'user';
-                const displayText = document.body.classList.contains('admin-mode') ? text : `${currentUsername}: ${text}`;
+                const isAdmin = document.body.classList.contains('admin-mode');
+                const senderType = isAdmin ? 'ai' : 'user';
+                const displayText = isAdmin ? text : `${currentUsername}: ${text}`;
                 
                 push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
                 input.value = "";
             } else if (!activeChatRef) {
-                alert("❌ Sélectionne d'abord un dossier client dans la liste de gauche !");
+                alert("❌ Sélectionne ou crée une discussion d'abord !");
             }
         });
 
         document.getElementById('customer-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('send-customer-btn').click();
-            }
+            if (e.key === 'Enter') document.getElementById('send-customer-btn').click();
         });
 
-        // 7. APPEL VERS L'IA MISTRAL
+        // Appel API Mistral
         async function fetchMistralAI(question) {
             if (!activeChatRef) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
@@ -643,29 +578,24 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         messages: [
-                            { 
-                                role: "system", 
-                                content: "Tu es Piu AI, une IA dont le logo est un poussin dans sa coquille. Reste naturelle, amicale et réponds en français. Intègre subtilement l'univers des poussins ou quelques emojis de temps en temps dans tes réponses, mais ne les spamme surtout pas et si l'utilisateur te dit bonjour, réponds-lui par une petite blague de poussin." 
-                            },
+                            { role: "system", content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis." },
                             { role: "user", content: question }
                         ]
                     })
                 });
                 const data = await response.json();
                 const aiText = data.choices[0].message.content;
-                
                 push(activeChatRef, { text: aiText, sender: 'ai', timestamp: Date.now() });
             } catch (e) { 
-                console.error("Erreur API Mistral:", e); 
+                console.error(e); 
             } finally {
                 if (indicator) indicator.style.display = 'none';
             }
         }
 
-        // Clic sur le poussin jaune 🐣 pour forcer la génération
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
-            if (!activeChatRef) return alert("❌ Sélectionne un client dans la liste de gauche d'abord !");
-            if (!lastUserMessage) return alert("Le client n'a pas encore envoyé de message à analyser.");
+            if (!activeChatRef) return alert("❌ Sélectionne une discussion active.");
+            if (!lastUserMessage) return alert("Aucun message utilisateur à analyser.");
             fetchMistralAI(lastUserMessage);
         });
     </script>
