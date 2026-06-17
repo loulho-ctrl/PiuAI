@@ -36,6 +36,21 @@
         body.client-mode .gemini-switch-zone { display: none !important; }
         body.client-mode .gemini-ai-zone { display: none !important; }
 
+        /* Barre de recherche d'utilisateurs */
+        .search-user-input {
+            width: 90%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #7f8c8d;
+            background-color: #34495e;
+            color: white;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .search-user-input::placeholder {
+            color: #bdc3c7;
+        }
+
         #chat-container {
             flex: 1;
             display: flex;
@@ -62,7 +77,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            margin-top: 10px;
+            margin-top: 5px;
         }
 
         .client-btn {
@@ -153,7 +168,7 @@
             outline: none;
         }
 
-        /* NOUVEAU BOUTON : Flèche bleue dessinée en pur CSS (Zéro bug sur Mobile) */
+        /* BOUTON : Flèche bleue dessinée en pur CSS */
         .send-msg-btn {
             background-color: #d1e4ff;
             border: none;
@@ -168,7 +183,6 @@
             transition: background-color 0.2s;
         }
 
-        /* Dessin de la flèche pointue en CSS */
         .send-msg-btn::before {
             content: "";
             width: 10px;
@@ -180,7 +194,6 @@
             top: 11px;
         }
 
-        /* Dessin de la ligne verticale de la flèche */
         .send-msg-btn::after {
             content: "";
             width: 3px;
@@ -298,6 +311,10 @@
         <input type="password" id="mistral-key" class="api-input" value="lMPgW2PjMBQ2rZmdNN7pg8BsQiU3eqgs" style="width: 90%;">
         
         <hr style="border-color: #4f5d73; width: 100%;">
+        
+        <h4>🔍 Rechercher un utilisateur :</h4>
+        <input type="text" id="search-user-bar" class="search-user-input" placeholder="Taper un nom...">
+
         <h4>Clients actifs :</h4>
         <div id="client-list"></div>
     </div>
@@ -339,7 +356,6 @@
                     </div>
 
                     <input type="text" id="customer-input">
-                    
                     <button class="send-msg-btn" id="send-customer-btn"></button>
 
                     <div class="gemini-ai-zone">
@@ -383,6 +399,7 @@
         let lastUserMessage = "";
         let currentListener = null;
         let autoReplyEnabled = false; 
+        let allClientsList = []; // Stockage global pour le filtrage local rapide
 
         // GESTION DES PLACEHOLDERS DYNAMIQUES (PC vs MOBILE)
         function updatePlaceholder() {
@@ -515,30 +532,47 @@
             });
         }
 
-        // 4. CHARGEMENT DE LA LISTE DES CLIENTS
+        // Fonction pour afficher le HTML des boutons clients filtrés ou non
+        function renderClientList(listToDisplay) {
+            const listContainer = document.getElementById('client-list');
+            if (!listContainer) return;
+            listContainer.innerHTML = "";
+            
+            listToDisplay.forEach(name => {
+                const btn = document.createElement('button');
+                btn.className = 'client-btn';
+                btn.innerText = "👤 " + name;
+                
+                btn.onclick = () => {
+                    document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById('header-title').innerText = `Console Admin ➔ Chat de : ${name}`;
+                    activeChatRef = ref(db, 'chats/' + name + '/messages');
+                    listenToChat(activeChatRef);
+                };
+                listContainer.appendChild(btn);
+            });
+        }
+
+        // 4. CHARGEMENT INITIAL ET ÉCOUTE DE LA LISTE DES CLIENTS
         try {
             onValue(ref(db, 'chats'), (snapshot) => {
-                const listContainer = document.getElementById('client-list');
-                if (!listContainer) return;
-                listContainer.innerHTML = "";
                 const clients = snapshot.val() || {};
+                allClientsList = Object.keys(clients); // Met à jour la mémoire globale
                 
-                Object.keys(clients).forEach(name => {
-                    const btn = document.createElement('button');
-                    btn.className = 'client-btn';
-                    btn.innerText = "👤 " + name;
-                    
-                    btn.onclick = () => {
-                        document.querySelectorAll('.client-btn').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        document.getElementById('header-title').innerText = `Console Admin ➔ Chat de : ${name}`;
-                        activeChatRef = ref(db, 'chats/' + name + '/messages');
-                        listenToChat(activeChatRef);
-                    };
-                    listContainer.appendChild(btn);
-                });
+                // On applique le filtre s'il y a déjà du texte écrit dans la barre
+                const currentSearchTerm = document.getElementById('search-user-bar').value.toLowerCase().trim();
+                const filtered = allClientsList.filter(name => name.toLowerCase().includes(currentSearchTerm));
+                renderClientList(filtered);
             });
         } catch (e) { console.error(e); }
+
+        // Événement d'écriture dans la barre de recherche (Filtre dynamique local)
+        document.getElementById('search-user-bar').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const filtered = allClientsList.filter(name => name.toLowerCase().includes(searchTerm));
+            renderClientList(filtered);
+        });
 
         // 5. ÉCOUTE DES MESSAGES EN TEMPS RÉEL
         function listenToChat(chatRef) {
