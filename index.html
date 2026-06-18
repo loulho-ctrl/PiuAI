@@ -268,7 +268,7 @@
         body.client-mode #mode-switcher-btn { display: none !important; }
     </style>
 </head>
-<body class="client-mode"> <!-- PAR DÉFAUT ICI ON MET CLIENT-MODE -->
+<body class="client-mode">
 
     <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
@@ -326,7 +326,8 @@
                     
                     <div class="gemini-switch-zone">
                         <label class="switch">
-                            <input type="checkbox" id="auto-reply-toggle">
+                            <!-- MODIFICATION ICI : On ajoute 'checked' pour l'activer visuellement d'office -->
+                            <input type="checkbox" id="auto-reply-toggle" checked>
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -374,7 +375,8 @@
         let activeChatRef = null;
         let lastUserMessage = "";
         let currentListener = null;
-        let autoReplyEnabled = false; 
+        // MODIFICATION ICI : On l'initialise à true pour que l'IA réponde immédiatement en arrière-plan
+        let autoReplyEnabled = true; 
         let allRawData = {};
         let selectedAdminUser = null;
         let currentActiveThreadId = null;
@@ -407,16 +409,13 @@
             }
         }
 
-        // --- NOUVELLE LOGIQUE DE TRAITEMENT DE L'URL ---
         const urlParams = new URLSearchParams(window.location.search);
         
         if (urlParams.get('admin') === 'true') {
-            // Si ?admin=true est présent, on passe en mode Magicien (Admin)
             document.body.classList.remove('client-mode', 'user-mode');
             document.body.classList.add('admin-mode');
             document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
         } else {
-            // Par défaut, ou si rien n'est écrit, on force le mode Client (sans afficher ?client=true dans l'URL)
             document.body.classList.remove('admin-mode', 'user-mode');
             document.body.classList.add('client-mode');
             document.getElementById('header-title').innerText = "Piu AI - Espace Client";
