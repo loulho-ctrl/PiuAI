@@ -28,18 +28,16 @@
             z-index: 10;
         }
 
-        /* Masque STRICTEMENT le bouton Nouveau Chat sur l'écran d'accueil/connexion */
-        body.auth-screen #add-new-chat-btn {
-            display: none !important;
-        }
-
         /* Affichage dynamique des panneaux selon le mode */
         #operator-panel { display: none; }
         #user-panel { display: none; }
 
+        /* On affiche le panneau admin uniquement en admin-mode */
         body.admin-mode #operator-panel { display: flex; }
-        body.user-mode #user-panel { display: flex; }
-        body.client-mode #user-panel { display: flex; }
+        
+        /* On n'affiche le panneau utilisateur QUE s'il n'y a PAS la classe auth-screen */
+        body.user-mode:not(.auth-screen) #user-panel { display: flex; }
+        body.client-mode:not(.auth-screen) #user-panel { display: flex; }
 
         /* SÉCURITÉ : Masquer les contrôles de l'IA pour les clients */
         body.client-mode .gemini-switch-zone { display: none !important; }
@@ -239,6 +237,10 @@
         body.user-mode #login-screen { display: flex; }
         body.client-mode #chat-screen { display: flex; }
 
+        /* Quand on doit se connecter, on force l'affichage de l'écran de login et on cache le chat */
+        body.auth-screen #login-screen { display: flex !important; }
+        body.auth-screen #chat-screen { display: none !important; }
+
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; }
         .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
         .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
@@ -266,8 +268,9 @@
         body.client-mode #mode-switcher-btn { display: none !important; }
     </style>
 </head>
-<body class="admin-mode">
+<body class="client-mode"> <!-- PAR DÉFAUT ICI ON MET CLIENT-MODE -->
 
+    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <h3>🧙‍♂️ Mode Magicien</h3>
         <label for="mistral-key">🔑 Ta Clé Mistral AI :</label>
@@ -282,20 +285,22 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
+    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <h3>💬 Mes Discussions</h3>
-        <button id="add-new-chat-btn" class="add-chat-btn">➕ Nouveau chat</button>
+        <button id="add-new-chat-btn" class="add-chat-btn" style="display: none;">➕ Nouveau chat</button>
         <div id="user-threads-list" class="list-container"></div>
     </div>
 
     <div id="chat-container">
         <div id="ai-header">
             <div class="logo-container">🐣</div>
-            <h1 id="header-title">Piu AI (Console Admin)</h1>
+            <h1 id="header-title">Piu AI</h1>
             <button id="logout-btn" style="display: none;">Déconnexion</button>
             <div class="status-dot"></div>
         </div>
 
+        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -307,6 +312,7 @@
             </div>
         </div>
 
+        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -314,6 +320,7 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
+            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -385,13 +392,36 @@
         window.addEventListener('resize', updatePlaceholder);
         updatePlaceholder();
 
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('client')) { 
-            document.body.className = "client-mode";
-            document.getElementById('header-title').innerText = "Piu AI - Espace Client";
-        } else {
-            document.body.className = "admin-mode";
+        function updateButtonVisibility() {
+            const btn = document.getElementById('add-new-chat-btn');
+            if (!btn) return;
+            
+            const isUserMode = document.body.classList.contains('user-mode');
+            const isClientMode = document.body.classList.contains('client-mode');
+            const hasUser = auth.currentUser != null;
+
+            if ((isUserMode || isClientMode) && hasUser) {
+                btn.style.setProperty('display', 'block', 'important');
+            } else {
+                btn.style.setProperty('display', 'none', 'important');
+            }
         }
+
+        // --- NOUVELLE LOGIQUE DE TRAITEMENT DE L'URL ---
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.get('admin') === 'true') {
+            // Si ?admin=true est présent, on passe en mode Magicien (Admin)
+            document.body.classList.remove('client-mode', 'user-mode');
+            document.body.classList.add('admin-mode');
+            document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
+        } else {
+            // Par défaut, ou si rien n'est écrit, on force le mode Client (sans afficher ?client=true dans l'URL)
+            document.body.classList.remove('admin-mode', 'user-mode');
+            document.body.classList.add('client-mode');
+            document.getElementById('header-title').innerText = "Piu AI - Espace Client";
+        }
+        updateButtonVisibility();
 
         document.getElementById('auto-reply-toggle').addEventListener('change', (e) => {
             autoReplyEnabled = e.target.checked;
@@ -409,24 +439,26 @@
                 currentActiveThreadId = null;
 
                 if (document.body.classList.contains('admin-mode')) {
-                    document.body.className = "user-mode";
+                    document.body.classList.remove('admin-mode');
+                    document.body.classList.add('user-mode');
+                    
                     modeSwitcher.innerText = "👑";
                     document.getElementById('header-title').innerText = "Piu AI";
                     
-                    // CORRECTION ICI : Si l'utilisateur n'est pas connecté, on lui force 'auth-screen' immédiatement au clic
                     if (!auth.currentUser) {
                         document.body.classList.add('auth-screen');
                     } else {
                         document.body.classList.remove('auth-screen');
                     }
                 } else if (document.body.classList.contains('user-mode')) {
-                    document.body.className = "admin-mode";
+                    document.body.classList.remove('user-mode', 'auth-screen');
+                    document.body.classList.add('admin-mode');
+                    
                     modeSwitcher.innerText = "👤";
                     document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
                     currentUsername = "AdminMagicien";
-                    // Mode admin n'a pas besoin de restrictions d'authentification
-                    document.body.classList.remove('auth-screen');
                 }
+                updateButtonVisibility();
             };
         }
 
@@ -458,6 +490,7 @@
             if (document.body.classList.contains('admin-mode')) {
                 document.body.classList.remove('auth-screen');
             }
+            updateButtonVisibility();
         });
 
         document.getElementById('register-btn').onclick = function() {
@@ -481,11 +514,12 @@
         document.getElementById('logout-btn').addEventListener('click', () => {
             signOut(auth).then(() => {
                 document.body.classList.add('auth-screen');
+                updateButtonVisibility();
             });
         });
 
 
-        // --- MODE UTILISATEUR : CRÉATION DE L'ÉLÉMENT DE CHAT FIN AVEC OPTIONS ---
+        // --- MODE UTILISATEUR : CRÉATION DE L'ÉLÉMENT DE CHAT ---
         function createChatRow(label, threadId, username, isActive, isSubThread = false) {
             const wrapper = document.createElement('div');
             wrapper.className = `chat-item-wrapper ${isSubThread ? 'thread-wrapper' : ''}`;
