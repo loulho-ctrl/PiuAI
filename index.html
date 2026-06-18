@@ -21,23 +21,17 @@
             background-color: #2c3e50;
             color: white;
             padding: 20px;
-            display: flex;
             flex-direction: column;
             gap: 15px;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             overflow-y: auto;
             z-index: 10;
-            transition: transform 0.3s ease, width 0.3s ease;
+            transition: transform 0.3s ease;
+            display: none; /* Masqué par défaut, géré dynamiquement par le mode */
         }
 
-        /* Affichage dynamique des panneaux selon le mode */
-        #operator-panel { display: none; }
-        #user-panel { display: none; }
-
-        /* On affiche le panneau admin uniquement en admin-mode */
+        /* Gestion de l'affichage initial selon le mode (Sur PC) */
         body.admin-mode #operator-panel { display: flex; }
-        
-        /* On n'affiche le panneau utilisateur QUE s'il n'y a PAS la classe auth-screen */
         body.user-mode:not(.auth-screen) #user-panel { display: flex; }
         body.client-mode:not(.auth-screen) #user-panel { display: flex; }
 
@@ -58,22 +52,26 @@
         }
         .close-sidebar-btn:hover { color: white; }
 
-        /* --- RESPONSIVE & ADAPTATION 2 TRAITS (MOBILE) --- */
+        /* --- RESPONSIVE : ADAPTATION 2 TRAITS (MOBILE ÉCRANS < 768px) --- */
         @media (max-width: 768px) {
-            .sidebar {
+            /* On force les sidebars à se comporter en tiroir coulissant sur mobile */
+            body.admin-mode #operator-panel,
+            body.user-mode:not(.auth-screen) #user-panel,
+            body.client-mode:not(.auth-screen) #user-panel {
+                display: flex; 
                 position: absolute;
                 left: 0;
                 top: 0;
                 height: 100%;
                 width: 75vw; /* Prend les 3/4 de l'écran */
-                transform: translateX(-100%); /* Caché par défaut */
-                z-index: 999; /* Passe au-dessus du chat */
+                transform: translateX(-100%); /* Caché à gauche par défaut */
+                z-index: 999;
                 box-shadow: 5px 0 15px rgba(0,0,0,0.3);
             }
 
-            /* Quand le menu est ouvert via le bouton */
+            /* Quand le menu est ouvert via le bouton = */
             body.sidebar-open .sidebar {
-                transform: translateX(0);
+                transform: translateX(0) !important;
             }
 
             .close-sidebar-btn {
@@ -81,7 +79,7 @@
             }
 
             #menu-toggle-btn {
-                display: flex !important; /* On montre le bouton 2 traits sur mobile */
+                display: flex !important; /* On affiche le bouton 2 traits sur mobile */
             }
         }
 
@@ -117,7 +115,7 @@
 
         /* --- BOUTON 2 TRAITS (STYLE GEMINI) --- */
         #menu-toggle-btn {
-            display: none; /* Caché sur PC, affiché sur Mobile via media query */
+            display: none; /* Caché sur PC, affiché uniquement sur Mobile */
             background: none;
             border: none;
             font-size: 1.8rem;
@@ -292,7 +290,7 @@
         #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
 
         body.admin-mode #chat-screen { display: flex; }
-        body.user-mode #login-screen { display: flex; }
+        body.user-mode #chat-screen { display: flex; }
         body.client-mode #chat-screen { display: flex; }
 
         body.auth-screen #login-screen { display: flex !important; }
@@ -500,7 +498,7 @@
                 document.getElementById('messages').innerHTML = "";
                 activeChatRef = null;
                 currentActiveThreadId = null;
-                document.body.classList.remove('sidebar-open'); // Ferme le menu au changement de mode
+                document.body.classList.remove('sidebar-open'); 
 
                 if (document.body.classList.contains('admin-mode')) {
                     document.body.classList.remove('admin-mode');
@@ -594,7 +592,7 @@
 
             btn.onclick = () => {
                 currentActiveThreadId = threadId;
-                document.body.classList.remove('sidebar-open'); // Ferme automatiquement le menu sur mobile après sélection
+                document.body.classList.remove('sidebar-open'); 
                 if (!isSubThread) {
                     activeChatRef = ref(db, `chats/${username}/threads/${threadId}/messages`);
                     document.querySelectorAll('#user-threads-list .nav-btn').forEach(b => b.classList.remove('active'));
