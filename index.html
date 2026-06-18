@@ -12,6 +12,7 @@
             display: flex;
             height: 100vh;
             overflow: hidden;
+            position: relative;
         }
 
         /* --- PANNEAUX LATÉRAUX (GAUCHE) --- */
@@ -26,6 +27,7 @@
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             overflow-y: auto;
             z-index: 10;
+            transition: transform 0.3s ease, width 0.3s ease;
         }
 
         /* Affichage dynamique des panneaux selon le mode */
@@ -42,6 +44,46 @@
         /* SÉCURITÉ : Masquer les contrôles de l'IA pour les clients */
         body.client-mode .gemini-switch-zone { display: none !important; }
         body.client-mode .gemini-ai-zone { display: none !important; }
+
+        /* --- BOUTON DE FERMETURE DU MENU (MOBILE) --- */
+        .close-sidebar-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: #bdc3c7;
+            font-size: 1.5rem;
+            cursor: pointer;
+            align-self: flex-end;
+            padding: 0 5px;
+        }
+        .close-sidebar-btn:hover { color: white; }
+
+        /* --- RESPONSIVE & ADAPTATION 2 TRAITS (MOBILE) --- */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 100%;
+                width: 75vw; /* Prend les 3/4 de l'écran */
+                transform: translateX(-100%); /* Caché par défaut */
+                z-index: 999; /* Passe au-dessus du chat */
+                box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+            }
+
+            /* Quand le menu est ouvert via le bouton */
+            body.sidebar-open .sidebar {
+                transform: translateX(0);
+            }
+
+            .close-sidebar-btn {
+                display: block; /* On montre le bouton X sur mobile */
+            }
+
+            #menu-toggle-btn {
+                display: flex !important; /* On montre le bouton 2 traits sur mobile */
+            }
+        }
 
         .sidebar-input {
             width: 90%;
@@ -61,6 +103,7 @@
             flex-direction: column;
             background: white;
             position: relative;
+            width: 100%;
         }
 
         #ai-header {
@@ -71,6 +114,21 @@
             align-items: center;
             gap: 12px;
         }
+
+        /* --- BOUTON 2 TRAITS (STYLE GEMINI) --- */
+        #menu-toggle-btn {
+            display: none; /* Caché sur PC, affiché sur Mobile via media query */
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: #5f6368;
+            cursor: pointer;
+            padding: 0 5px;
+            line-height: 1;
+            align-items: center;
+            justify-content: center;
+        }
+        #menu-toggle-btn:hover { color: #1e293b; }
 
         #ai-header h1 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight: 700; }
         #ai-header .status-dot { width: 8px; height: 8px; background-color: #2ecc71; border-radius: 50%; margin-left: auto; }
@@ -237,7 +295,6 @@
         body.user-mode #login-screen { display: flex; }
         body.client-mode #chat-screen { display: flex; }
 
-        /* Quand on doit se connecter, on force l'affichage de l'écran de login et on cache le chat */
         body.auth-screen #login-screen { display: flex !important; }
         body.auth-screen #chat-screen { display: none !important; }
 
@@ -270,8 +327,8 @@
 </head>
 <body class="client-mode">
 
-    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
+        <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
         <label for="mistral-key">🔑 Ta Clé Mistral AI :</label>
         <input type="password" id="mistral-key" class="api-input" value="lMPgW2PjMBQ2rZmdNN7pg8BsQiU3eqgs" style="width: 90%;">
@@ -285,8 +342,8 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
-    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
+        <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
         <button id="add-new-chat-btn" class="add-chat-btn" style="display: none;">➕ Nouveau chat</button>
         <div id="user-threads-list" class="list-container"></div>
@@ -294,13 +351,13 @@
 
     <div id="chat-container">
         <div id="ai-header">
+            <button id="menu-toggle-btn">=</button>
             <div class="logo-container">🐣</div>
             <h1 id="header-title">Piu AI</h1>
             <button id="logout-btn" style="display: none;">Déconnexion</button>
             <div class="status-dot"></div>
         </div>
 
-        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -312,7 +369,6 @@
             </div>
         </div>
 
-        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -320,13 +376,11 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
                     <div class="gemini-switch-zone">
                         <label class="switch">
-                            <!-- MODIFICATION ICI : On ajoute 'checked' pour l'activer visuellement d'office -->
                             <input type="checkbox" id="auto-reply-toggle" checked>
                             <span class="slider"></span>
                         </label>
@@ -375,11 +429,21 @@
         let activeChatRef = null;
         let lastUserMessage = "";
         let currentListener = null;
-        // MODIFICATION ICI : On l'initialise à true pour que l'IA réponde immédiatement en arrière-plan
         let autoReplyEnabled = true; 
         let allRawData = {};
         let selectedAdminUser = null;
         let currentActiveThreadId = null;
+
+        // Événement pour ouvrir/fermer le menu avec le bouton "="
+        document.getElementById('menu-toggle-btn').onclick = (e) => {
+            e.stopPropagation();
+            document.body.classList.toggle('sidebar-open');
+        };
+
+        // Fermer le menu si on clique sur l'écran principal (zone chat)
+        document.getElementById('chat-container').onclick = () => {
+            document.body.classList.remove('sidebar-open');
+        };
 
         // Fermer les menus contextuels si on clique ailleurs
         document.addEventListener('click', () => {
@@ -436,6 +500,7 @@
                 document.getElementById('messages').innerHTML = "";
                 activeChatRef = null;
                 currentActiveThreadId = null;
+                document.body.classList.remove('sidebar-open'); // Ferme le menu au changement de mode
 
                 if (document.body.classList.contains('admin-mode')) {
                     document.body.classList.remove('admin-mode');
@@ -529,6 +594,7 @@
 
             btn.onclick = () => {
                 currentActiveThreadId = threadId;
+                document.body.classList.remove('sidebar-open'); // Ferme automatiquement le menu sur mobile après sélection
                 if (!isSubThread) {
                     activeChatRef = ref(db, `chats/${username}/threads/${threadId}/messages`);
                     document.querySelectorAll('#user-threads-list .nav-btn').forEach(b => b.classList.remove('active'));
