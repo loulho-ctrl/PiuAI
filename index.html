@@ -338,6 +338,7 @@
 </head>
 <body class="client-mode">
 
+    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -353,6 +354,7 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
+    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
@@ -369,6 +371,7 @@
             <div class="status-dot"></div>
         </div>
 
+        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -380,6 +383,7 @@
             </div>
         </div>
 
+        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -387,6 +391,7 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
+            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -444,7 +449,7 @@
         let allRawData = {};
         let selectedAdminUser = null;
         let currentActiveThreadId = null;
-        let isAiResponding = false; // Bloque les doubles envois pendant que l'IA écrit
+        let isAiResponding = false;
 
         document.getElementById('menu-toggle-btn').onclick = (e) => {
             e.stopPropagation();
@@ -488,6 +493,9 @@
             document.body.classList.remove('client-mode', 'user-mode');
             document.body.classList.add('admin-mode');
             document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
+            // MASQUER LE BOUTON DE SWITCH CAR ON EST EN MODE ADMIN PAR URL STRICT
+            const switcherBtn = document.getElementById('mode-switcher-btn');
+            if (switcherBtn) switcherBtn.style.setProperty('display', 'none', 'important');
         } else {
             document.body.classList.remove('admin-mode', 'user-mode');
             document.body.classList.add('client-mode');
@@ -758,12 +766,10 @@
                 const msgsContainer = document.getElementById('messages');
                 if (!msgsContainer) return;
                 
-                // On évite de vider l'écran pendant que l'IA stream pour éviter les clignotements
                 if (isAiResponding) {
                     const data = snapshot.val() || {};
                     const messagesList = Object.values(data);
                     
-                    // Si on est en train de streamer, on met juste à jour le contenu visuel en direct
                     msgsContainer.innerHTML = "";
                     messagesList.forEach(msg => {
                         const div = document.createElement('div');
@@ -803,7 +809,7 @@
         }
 
         document.getElementById('send-customer-btn').addEventListener('click', () => {
-            if (isAiResponding) return; // Sécurité anti-spam
+            if (isAiResponding) return;
             const input = document.getElementById('customer-input');
             const text = input.value.trim();
             if (text !== "" && activeChatRef) {
@@ -850,7 +856,6 @@
             }
         }
 
-        // NOUVELLE FONCTION DE STREAMING (MOT-À-MOT)
         async function fetchMistralAIStream(question) {
             if (!activeChatRef || isAiResponding) return;
             isAiResponding = true;
@@ -862,7 +867,6 @@
             if (indicator) indicator.style.display = 'flex';
             if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-            // 1. On crée un nouvel ID unique dans Firebase pour la réponse en cours
             const newAiMsgRef = push(activeChatRef);
             let currentFullText = "";
 
@@ -872,7 +876,7 @@
                     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
                     body: JSON.stringify({
                         model: "open-mistral-7b",
-                        stream: true, // ON ACTIVE LE STREAMING ICI !
+                        stream: true,
                         messages: [
                             { role: "system", content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis." },
                             { role: "user", content: question }
@@ -889,7 +893,6 @@
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    // Décoder le bloc binaire reçu de l'API Mistral
                     const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split("\n");
 
@@ -903,7 +906,6 @@
                                 const textToken = parsed.choices[0].delta.content;
                                 if (textToken) {
                                     currentFullText += textToken;
-                                    // Mise à jour de Firebase au fur et à mesure
                                     set(newAiMsgRef, {
                                         text: currentFullText,
                                         sender: 'ai',
@@ -911,7 +913,7 @@
                                     });
                                 }
                             } catch (err) {
-                                // Ignore les lignes incomplètes ou mal formées pendant le flux
+                                // Ignore partial lines
                             }
                         }
                     }
