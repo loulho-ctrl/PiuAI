@@ -557,13 +557,8 @@
         let currentActiveThreadId = null;
         let isAiResponding = false;
 
-        // Suggestions de départ personnalisables
-        const defaultSuggestions = [
-            { icon: "💻", text: "Aide-moi à corriger un bug dans mon code HTML/JS" },
-            { icon: "🎮", text: "Donne-moi des idées d'améliorations pour mon jeu vidéo" },
-            { icon: "✍️", text: "Rédige une histoire courte ou un scénario marrant" },
-            { icon: "💡", text: "Propose-moi un projet de dev sympa à coder ce week-end" }
-        ];
+        // Les suggestions seront générées dynamiquement via l'IA et la mémoire Firebase
+        let dynamicSuggestions = [];
 
         const renderer = new marked.Renderer();
         renderer.code = function(code, infostring, escaped) {
