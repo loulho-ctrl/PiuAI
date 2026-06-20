@@ -760,10 +760,10 @@
                 const msgsContainer = document.getElementById('messages');
                 if (!msgsContainer) return;
                 
+                const data = snapshot.val() || {};
+                const messagesList = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+
                 if (isAiResponding) {
-                    const data = snapshot.val() || {};
-                    const messagesList = Object.values(data);
-                    
                     msgsContainer.innerHTML = "";
                     messagesList.forEach(msg => {
                         const div = document.createElement('div');
@@ -776,9 +776,6 @@
                 }
 
                 msgsContainer.innerHTML = ""; 
-                const data = snapshot.val() || {};
-                const messagesList = Object.values(data);
-                
                 messagesList.forEach(msg => {
                     const div = document.createElement('div');
                     div.className = `message ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`;
@@ -850,7 +847,6 @@
             }
         }
 
-        // AGGRANDISSEMENT ET MODIFICATION POUR AJOUTER LA MÉMOIRE DE DISCUSSION
         async function fetchMistralAIStream() {
             if (!activeChatRef || isAiResponding) return;
             isAiResponding = true;
@@ -862,19 +858,15 @@
             if (indicator) indicator.style.display = 'flex';
             if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-            // 1. Lire TOUT l'historique de cette discussion dans Firebase
             let contextMessages = [];
             try {
                 const snapshot = await get(activeChatRef);
                 if (snapshot.exists()) {
                     const rawMsgs = snapshot.val();
-                    // Classer par timestamp pour être sûr de la chronologie
                     const sortedMsgs = Object.values(rawMsgs).sort((a, b) => a.timestamp - b.timestamp);
                     
-                    // Convertir chaque message au format Mistral (system, user, assistant)
                     sortedMsgs.forEach(msg => {
                         let text = msg.text;
-                        // On nettoie le "pseudo: " devant les messages de l'utilisateur si présent
                         if (msg.sender === 'user' && text.includes(':')) {
                             text = text.substring(text.indexOf(':') + 1).trim();
                         }
@@ -889,18 +881,15 @@
                 console.error("Erreur récupération historique :", err);
             }
 
-            // Si on n'a rien trouvé, on met au moins la dernière question connue par sécurité
             if (contextMessages.length === 0) {
                 contextMessages.push({ role: 'user', content: lastUserMessage });
             }
 
-            // On ajoute notre System Prompt tout en haut du tableau pour dicter le comportement de Piu AI
             contextMessages.unshift({ 
                 role: "system", 
-                content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis." 
+                content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis. Utilise notre historique pour rester logique." 
             });
 
-            // On crée le conteneur du nouveau message de l'IA dans Firebase
             const newAiMsgRef = push(activeChatRef);
             let currentFullText = "";
 
@@ -911,7 +900,7 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         stream: true,
-                        messages: contextMessages // ON PASSE L'HISTORIQUE COMPLET ICI !
+                        messages: contextMessages
                     })
                 });
 
@@ -944,7 +933,7 @@
                                     });
                                 }
                             } catch (err) {
-                                // Ignore partial lines
+                                // Ignorer les morceaux incomplets
                             }
                         }
                     }
