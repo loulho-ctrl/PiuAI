@@ -38,7 +38,9 @@
         body.user-mode:not(.auth-screen) #user-panel { display: flex; }
         body.client-mode:not(.auth-screen) #user-panel { display: flex; }
 
+        /* SÉCURITÉ : Masquer les contrôles d'automatisation IA et le bouton forcer l'IA pour les clients */
         body.client-mode .gemini-switch-zone { display: none !important; }
+        body.client-mode .gemini-ai-zone { display: none !important; }
 
         .close-sidebar-btn {
             display: none;
@@ -52,7 +54,7 @@
         }
         .close-sidebar-btn:hover { color: white; }
 
-        /* --- RESPONSIVE : ADAPTATION 2 TRAITS (MOBILE ÉCRANS < 768px) --- */
+        /* --- RESPONSIVE : ADAPTATION (MOBILE ÉCRANS < 768px) --- */
         @media (max-width: 768px) {
             body.admin-mode #operator-panel,
             body.user-mode:not(.auth-screen) #user-panel,
@@ -72,13 +74,8 @@
                 transform: translateX(0) !important;
             }
 
-            .close-sidebar-btn {
-                display: block; 
-            }
-
-            #menu-toggle-btn {
-                display: flex !important; 
-            }
+            .close-sidebar-btn { display: block; }
+            #menu-toggle-btn { display: flex !important; }
 
             .gemini-input-bar {
                 padding: 4px 8px !important;
@@ -236,9 +233,7 @@
             font-weight: normal;
             border-radius: 0;
         }
-        .chat-context-menu button:hover {
-            background: #f8d7da;
-        }
+        .chat-context-menu button:hover { background: #f8d7da; }
 
         .add-chat-btn {
             background-color: #2ecc71;
@@ -339,7 +334,6 @@
 </head>
 <body class="client-mode">
 
-    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -355,7 +349,6 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
-    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
@@ -372,7 +365,6 @@
             <div class="status-dot"></div>
         </div>
 
-        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -384,7 +376,6 @@
             </div>
         </div>
 
-        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -392,7 +383,6 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -616,7 +606,7 @@
                     document.querySelectorAll('.thread-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                 }
-                listenToMessages(activeChatRef);
+                listenToMessages(activeChatRef, username);
             };
 
             const dotsBtn = document.createElement('button');
@@ -669,7 +659,6 @@
 
                 threadIds.forEach((id) => {
                     const isActive = (currentActiveThreadId === id);
-                    // Si un titre personnalisé existe dans Firebase, on l'utilise, sinon valeur par défaut
                     const label = threads[id].title || `💬 Discussion en cours`;
                     const chatRow = createChatRow(label, id, username, isActive, false);
                     listContainer.appendChild(chatRow);
@@ -686,7 +675,6 @@
             const newThreadRef = push(ref(db, `chats/${username}/threads`));
             currentActiveThreadId = newThreadRef.key;
             
-            // On initialise le chat avec un titre générique par défaut
             set(ref(db, `chats/${username}/threads/${currentActiveThreadId}`), {
                 title: "💬 Nouvelle discussion"
             });
@@ -742,7 +730,7 @@
 
         document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
 
-        function listenToMessages(chatRef) {
+        function listenToMessages(chatRef, threadOwner) {
             if (currentListener) currentListener();
 
             currentListener = onValue(chatRef, (snapshot) => {
@@ -763,13 +751,15 @@
 
                 const lastMsg = messagesList[messagesList.length - 1];
                 if (lastMsg && lastMsg.sender === 'user') {
-                    lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
+                    // Nettoyage précis de la chaîne de texte du message utilisateur
+                    lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 1).trim() : lastMsg.text.trim();
                     
-                    // Compter le nombre de messages de l'utilisateur. 
-                    // S'il n'y en a qu'un seul, c'est le tout premier ! On génère alors un titre.
-                    const userMessagesCount = messagesList.filter(m => m.sender === 'user').length;
-                    if (userMessagesCount === 1) {
-                        generateChatTitle(lastUserMessage);
+                    // On filtre précisément les messages envoyés par l'humain
+                    const userMessages = messagesList.filter(m => m.sender === 'user');
+                    
+                    // Si c'est EXACTEMENT son premier message, on force le changement de titre
+                    if (userMessages.length === 1 && lastMsg.text === userMessages[0].text) {
+                        generateChatTitle(lastUserMessage, threadOwner);
                     }
 
                     if (autoReplyEnabled) fetchMistralAI(lastUserMessage);
@@ -796,11 +786,10 @@
             if (e.key === 'Enter') document.getElementById('send-customer-btn').click();
         });
 
-        // NOUVELLE FONCTION : Génère un titre court via l'API Mistral et met à jour Firebase
-        async function generateChatTitle(firstQuestion) {
-            if (!currentActiveThreadId) return;
+        // RENOMMAGE STABILISÉ
+        async function generateChatTitle(firstQuestion, targetUser) {
+            if (!currentActiveThreadId || !targetUser) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
-            const targetUser = document.body.classList.contains('admin-mode') ? selectedAdminUser : currentUsername;
             
             try {
                 const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -809,25 +798,21 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         messages: [
-                            { role: "system", content: "Tu es un assistant de base de données. Analyse la demande de l'utilisateur et résume-la sous la forme d'un titre de chat très court (maximum 3 à 4 mots) sans guillemets, sans ponctuation et commence par un émoji pertinent." },
-                            { role: "user", content: `Donne un titre pour cette demande : "${firstQuestion}"` }
+                            { role: "system", content: "Tu es un assistant système. Synthétise la demande de l'utilisateur sous la forme d'un titre court d'un historique de chat (maximum 3 mots). Ne mets pas de guillemets, pas de point final. Commence OBLIGATOIREMENT par un émoji." },
+                            { role: "user", content: `Génère le titre court pour : "${firstQuestion}"` }
                         ]
                     })
                 });
                 const data = await response.json();
                 let shortTitle = data.choices[0].message.content.trim();
-                
-                // Nettoyage rapide au cas où Mistral ajoute des guillemets
                 shortTitle = shortTitle.replace(/["']/g, "");
 
-                // Mise à jour de la propriété "title" du thread correspondant dans Firebase
-                if (targetUser && currentActiveThreadId) {
-                    update(ref(db, `chats/${targetUser}/threads/${currentActiveThreadId}`), {
-                        title: shortTitle
-                    });
-                }
+                // Mise à jour de la clé racine "title" dans Firebase
+                update(ref(db, `chats/${targetUser}/threads/${currentActiveThreadId}`), {
+                    title: shortTitle
+                });
             } catch (e) {
-                console.error("Erreur lors de la génération du titre :", e);
+                console.error("Erreur renommage automatique :", e);
             }
         }
 
