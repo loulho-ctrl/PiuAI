@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Piu AI - Multi-Chats & Suppression</title>
     <style>
         body {
@@ -11,6 +11,8 @@
             margin: 0;
             display: flex;
             height: 100vh;
+            height: 100dvh; /* S'adapte parfaitement sur mobile sans se faire couper par la barre du navigateur */
+            width: 100vw;
             overflow: hidden;
             position: relative;
         }
@@ -27,7 +29,9 @@
             overflow-y: auto;
             z-index: 10;
             transition: transform 0.3s ease;
-            display: none; /* Masqué par défaut, géré dynamiquement par le mode */
+            display: none; 
+            height: 100%;
+            box-sizing: border-box;
         }
 
         /* Gestion de l'affichage initial selon le mode (Sur PC) */
@@ -54,7 +58,6 @@
 
         /* --- RESPONSIVE : ADAPTATION 2 TRAITS (MOBILE ÉCRANS < 768px) --- */
         @media (max-width: 768px) {
-            /* On force les sidebars à se comporter en tiroir coulissant sur mobile */
             body.admin-mode #operator-panel,
             body.user-mode:not(.auth-screen) #user-panel,
             body.client-mode:not(.auth-screen) #user-panel {
@@ -64,22 +67,21 @@
                 top: 0;
                 height: 100%;
                 width: 75vw; /* Prend les 3/4 de l'écran */
-                transform: translateX(-100%); /* Caché à gauche par défaut */
+                transform: translateX(-100%); 
                 z-index: 999;
                 box-shadow: 5px 0 15px rgba(0,0,0,0.3);
             }
 
-            /* Quand le menu est ouvert via le bouton = */
             body.sidebar-open .sidebar {
                 transform: translateX(0) !important;
             }
 
             .close-sidebar-btn {
-                display: block; /* On montre le bouton X sur mobile */
+                display: block; 
             }
 
             #menu-toggle-btn {
-                display: flex !important; /* On affiche le bouton 2 traits sur mobile */
+                display: flex !important; 
             }
         }
 
@@ -101,7 +103,9 @@
             flex-direction: column;
             background: white;
             position: relative;
+            height: 100%;
             width: 100%;
+            overflow: hidden;
         }
 
         #ai-header {
@@ -111,11 +115,11 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-shrink: 0; /* Empêche le header de s'écraser */
         }
 
-        /* --- BOUTON 2 TRAITS (STYLE GEMINI) --- */
         #menu-toggle-btn {
-            display: none; /* Caché sur PC, affiché uniquement sur Mobile */
+            display: none; 
             background: none;
             border: none;
             font-size: 1.8rem;
@@ -140,7 +144,6 @@
             margin-top: 5px;
         }
 
-        /* --- BOUTONS DE NAVIGATION PLUS FINS --- */
         .chat-item-wrapper {
             position: relative;
             display: flex;
@@ -167,7 +170,6 @@
         }
         .nav-btn:hover, .nav-btn.active { background: #1abc9c; }
 
-        /* Style spécifique sous-chats admin plus fins */
         .thread-wrapper {
             margin-left: 15px;
             width: calc(100% - 15px);
@@ -180,7 +182,6 @@
         }
         .thread-btn:hover, .thread-btn.active { background: #34495e; border-left-color: #1abc9c; }
 
-        /* --- BOUTON OPTION 3 PETITS POINTS (⋮) --- */
         .chat-options-btn {
             position: absolute;
             right: 8px;
@@ -199,7 +200,6 @@
             background: rgba(255,255,255,0.1);
         }
 
-        /* Menu Contextuel d'actions (Supprimer) */
         .chat-context-menu {
             position: absolute;
             right: 30px;
@@ -249,6 +249,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            flex-shrink: 0; /* Empêche la barre de saisie de s'écraser tout en bas */
+            box-sizing: border-box;
         }
 
         .gemini-input-bar {
@@ -286,8 +288,8 @@
         .piu-trigger-btn:hover { background-color: #f7b731; transform: scale(1.05); }
 
         /* --- GESTION DES ÉCRANS --- */
-        #login-screen { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; padding: 20px; }
-        #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+        #login-screen { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; padding: 20px; }
+        #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; height: 100%; }
 
         body.admin-mode #chat-screen { display: flex; }
         body.user-mode #chat-screen { display: flex; }
@@ -325,6 +327,7 @@
 </head>
 <body class="client-mode">
 
+    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -340,6 +343,7 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
+    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
@@ -356,6 +360,7 @@
             <div class="status-dot"></div>
         </div>
 
+        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -367,6 +372,7 @@
             </div>
         </div>
 
+        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -374,6 +380,7 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
+            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -432,18 +439,15 @@
         let selectedAdminUser = null;
         let currentActiveThreadId = null;
 
-        // Événement pour ouvrir/fermer le menu avec le bouton "="
         document.getElementById('menu-toggle-btn').onclick = (e) => {
             e.stopPropagation();
             document.body.classList.toggle('sidebar-open');
         };
 
-        // Fermer le menu si on clique sur l'écran principal (zone chat)
         document.getElementById('chat-container').onclick = () => {
             document.body.classList.remove('sidebar-open');
         };
 
-        // Fermer les menus contextuels si on clique ailleurs
         document.addEventListener('click', () => {
             document.querySelectorAll('.chat-context-menu').forEach(menu => menu.style.display = 'none');
         });
@@ -524,7 +528,6 @@
             };
         }
 
-        // ÉCOUTE DES CHANGEMENTS D'ÉTAT AUTHENTIFICATION
         onAuthStateChanged(auth, (user) => {
             const isUserOrClient = document.body.classList.contains('user-mode') || document.body.classList.contains('client-mode');
             
@@ -580,8 +583,6 @@
             });
         });
 
-
-        // --- MODE UTILISATEUR : CRÉATION DE L'ÉLÉMENT DE CHAT ---
         function createChatRow(label, threadId, username, isActive, isSubThread = false) {
             const wrapper = document.createElement('div');
             wrapper.className = `chat-item-wrapper ${isSubThread ? 'thread-wrapper' : ''}`;
@@ -641,7 +642,6 @@
             return wrapper;
         }
 
-        // --- ÉCOUTE DES CHATS CLIENTS ---
         function listenToUserThreads(username) {
             onValue(ref(db, `chats/${username}/threads`), (snapshot) => {
                 const threads = snapshot.val() || {};
@@ -682,8 +682,6 @@
             if (currentUsername) createNewThread(currentUsername);
         };
 
-
-        // --- RENDU MODE ADMIN ---
         function renderAdminPanel() {
             const listContainer = document.getElementById('client-list');
             if (!listContainer) return;
@@ -723,8 +721,6 @@
 
         document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
 
-
-        // --- ÉCOUTE DES MESSAGES ---
         function listenToMessages(chatRef) {
             if (currentListener) currentListener();
 
