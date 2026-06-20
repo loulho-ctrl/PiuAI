@@ -11,7 +11,7 @@
             margin: 0;
             display: flex;
             height: 100vh;
-            height: 100dvh; /* S'adapte parfaitement sur mobile sans se faire couper par la barre du navigateur */
+            height: 100dvh;
             width: 100vw;
             overflow: hidden;
             position: relative;
@@ -34,15 +34,12 @@
             box-sizing: border-box;
         }
 
-        /* Gestion de l'affichage initial selon le mode (Sur PC) */
         body.admin-mode #operator-panel { display: flex; }
         body.user-mode:not(.auth-screen) #user-panel { display: flex; }
         body.client-mode:not(.auth-screen) #user-panel { display: flex; }
 
-        /* SÉCURITÉ : Masquer uniquement le commutateur auto-reply pour les clients basiques si besoin */
         body.client-mode .gemini-switch-zone { display: none !important; }
 
-        /* --- BOUTON DE FERMETURE DU MENU (MOBILE) --- */
         .close-sidebar-btn {
             display: none;
             background: none;
@@ -65,7 +62,7 @@
                 left: 0;
                 top: 0;
                 height: 100%;
-                width: 75vw; /* Prend les 3/4 de l'écran */
+                width: 75vw;
                 transform: translateX(-100%); 
                 z-index: 999;
                 box-shadow: 5px 0 15px rgba(0,0,0,0.3);
@@ -83,7 +80,6 @@
                 display: flex !important; 
             }
 
-            /* Ajustement pour que tout rentre sur mobile dans la barre style Gemini */
             .gemini-input-bar {
                 padding: 4px 8px !important;
                 gap: 5px !important;
@@ -131,7 +127,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            flex-shrink: 0; /* Empêche le header de s'écraser */
+            flex-shrink: 0;
         }
 
         #menu-toggle-btn {
@@ -265,7 +261,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-shrink: 0; /* Empêche la barre de saisie de s'écraser tout en bas */
+            flex-shrink: 0;
             box-sizing: border-box;
         }
 
@@ -312,7 +308,7 @@
         body.client-mode #chat-screen { display: flex; }
 
         body.auth-screen #login-screen { display: flex !important; }
-        body.auth-screen #chat-screen { none !important; }
+        body.auth-screen #chat-screen { display: none !important; }
 
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; }
         .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
@@ -343,6 +339,7 @@
 </head>
 <body class="client-mode">
 
+    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -358,6 +355,7 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
+    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
@@ -374,6 +372,7 @@
             <div class="status-dot"></div>
         </div>
 
+        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -385,6 +384,7 @@
             </div>
         </div>
 
+        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -392,6 +392,7 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
+            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -418,7 +419,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -666,9 +667,11 @@
                     return;
                 }
 
-                threadIds.forEach((id, index) => {
+                threadIds.forEach((id) => {
                     const isActive = (currentActiveThreadId === id);
-                    const chatRow = createChatRow(`💬 Conversation n°${index + 1}`, id, username, isActive, false);
+                    // Si un titre personnalisé existe dans Firebase, on l'utilise, sinon valeur par défaut
+                    const label = threads[id].title || `💬 Discussion en cours`;
+                    const chatRow = createChatRow(label, id, username, isActive, false);
                     listContainer.appendChild(chatRow);
                 });
 
@@ -682,6 +685,12 @@
         function createNewThread(username) {
             const newThreadRef = push(ref(db, `chats/${username}/threads`));
             currentActiveThreadId = newThreadRef.key;
+            
+            // On initialise le chat avec un titre générique par défaut
+            set(ref(db, `chats/${username}/threads/${currentActiveThreadId}`), {
+                title: "💬 Nouvelle discussion"
+            });
+
             push(ref(db, `chats/${username}/threads/${currentActiveThreadId}/messages`), {
                 text: "Bonjour ! Comment puis-je t'aider aujourd'hui ? 🐣",
                 sender: "ai",
@@ -714,9 +723,10 @@
 
                 if (selectedAdminUser === name) {
                     const threads = allRawData[name].threads || {};
-                    Object.keys(threads).forEach((threadId, index) => {
+                    Object.keys(threads).forEach((threadId) => {
                         const isActive = (currentActiveThreadId === threadId);
-                        const threadRow = createChatRow(`📄 Chat n°${index + 1}`, threadId, name, isActive, true);
+                        const label = threads[threadId].title || `📄 Chat`;
+                        const threadRow = createChatRow(label, threadId, name, isActive, true);
                         listContainer.appendChild(threadRow);
                     });
                 }
@@ -754,6 +764,14 @@
                 const lastMsg = messagesList[messagesList.length - 1];
                 if (lastMsg && lastMsg.sender === 'user') {
                     lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 2) : lastMsg.text;
+                    
+                    // Compter le nombre de messages de l'utilisateur. 
+                    // S'il n'y en a qu'un seul, c'est le tout premier ! On génère alors un titre.
+                    const userMessagesCount = messagesList.filter(m => m.sender === 'user').length;
+                    if (userMessagesCount === 1) {
+                        generateChatTitle(lastUserMessage);
+                    }
+
                     if (autoReplyEnabled) fetchMistralAI(lastUserMessage);
                 }
             });
@@ -777,6 +795,41 @@
         document.getElementById('customer-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') document.getElementById('send-customer-btn').click();
         });
+
+        // NOUVELLE FONCTION : Génère un titre court via l'API Mistral et met à jour Firebase
+        async function generateChatTitle(firstQuestion) {
+            if (!currentActiveThreadId) return;
+            const apiKey = document.getElementById('mistral-key').value.trim();
+            const targetUser = document.body.classList.contains('admin-mode') ? selectedAdminUser : currentUsername;
+            
+            try {
+                const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model: "open-mistral-7b",
+                        messages: [
+                            { role: "system", content: "Tu es un assistant de base de données. Analyse la demande de l'utilisateur et résume-la sous la forme d'un titre de chat très court (maximum 3 à 4 mots) sans guillemets, sans ponctuation et commence par un émoji pertinent." },
+                            { role: "user", content: `Donne un titre pour cette demande : "${firstQuestion}"` }
+                        ]
+                    })
+                });
+                const data = await response.json();
+                let shortTitle = data.choices[0].message.content.trim();
+                
+                // Nettoyage rapide au cas où Mistral ajoute des guillemets
+                shortTitle = shortTitle.replace(/["']/g, "");
+
+                // Mise à jour de la propriété "title" du thread correspondant dans Firebase
+                if (targetUser && currentActiveThreadId) {
+                    update(ref(db, `chats/${targetUser}/threads/${currentActiveThreadId}`), {
+                        title: shortTitle
+                    });
+                }
+            } catch (e) {
+                console.error("Erreur lors de la génération du titre :", e);
+            }
+        }
 
         async function fetchMistralAI(question) {
             if (!activeChatRef) return;
