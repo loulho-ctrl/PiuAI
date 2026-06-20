@@ -93,12 +93,6 @@
             }
             .send-msg-btn::before { top: 9px !important; }
             .send-msg-btn::after { top: 11px !important; }
-            
-            /* Suggestions mobiles en liste */
-            .suggestions-container {
-                grid-template-columns: 1fr !important;
-                padding: 10px !important;
-            }
         }
 
         .sidebar-input {
@@ -316,8 +310,8 @@
         body.auth-screen #login-screen { display: flex !important; }
         body.auth-screen #chat-screen { display: none !important; }
 
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; position: relative; }
-        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; z-index: 2; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
         .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
         
         /* STYLE DU MESSAGE IA AVEC SUPPORT MARKDOWN */
@@ -325,44 +319,6 @@
         .message p { margin: 4px 0; }
         .message ul, .message ol { margin: 5px 0; padding-left: 20px; }
         
-        /* --- SUGGESTIONS DE QUESTIONS AU DÉMARRAGE (STYLE GEMINI) --- */
-        .suggestions-container {
-            display: none; /* Caché par défaut, activé par JS si historique vide */
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            width: 100%;
-            max-width: 700px;
-            margin: auto auto 20px auto; /* Centré au milieu bas de la zone message */
-            padding: 0 10px;
-            box-sizing: border-box;
-            z-index: 5;
-        }
-        .suggestion-card {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 14px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            color: #475569;
-            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-        }
-        .suggestion-card:hover {
-            background-color: #f8fafc;
-            border-color: #cbd5e1;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transform: translateY(-2px);
-        }
-        .suggestion-icon {
-            font-size: 1.2rem;
-            margin-top: 8px;
-            align-self: flex-end;
-        }
-
         /* --- CONTENEUR ET BOUTON COPIER POUR BLOCS DE CODE (STYLE GEMINI) --- */
         .code-block-container {
             position: relative;
@@ -477,8 +433,6 @@
         <div id="chat-screen">
             <div id="messages"></div>
             
-            <div id="suggestions" class="suggestions-container"></div>
-            
             <div id="thinking-indicator" class="piu-thinking">
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
@@ -527,16 +481,6 @@
                 console.error("Erreur lors de la copie : ", err);
             });
         }
-
-        // Fonction appelée lors du clic sur une carte de suggestion
-        function selectSuggestion(text) {
-            const input = document.getElementById('customer-input');
-            if (input) {
-                input.value = text;
-                // Déclenche automatiquement le clic sur l'envoi
-                document.getElementById('send-customer-btn').click();
-            }
-        }
     </script>
 
     <script type="module">
@@ -574,7 +518,6 @@
         let currentActiveThreadId = null;
         let isAiResponding = false;
 
-        // CONFIGURATION DU RENDU PERSONNALISÉ DE MARKED.JS POUR LES CODES BLOCKS
         const renderer = new marked.Renderer();
         renderer.code = function(code, infostring, escaped) {
             return `
@@ -802,7 +745,6 @@
                             currentActiveThreadId = null;
                             activeChatRef = null;
                             document.getElementById('messages').innerHTML = "";
-                            document.getElementById('suggestions').style.display = 'none';
                         }
                     });
                 }
@@ -903,78 +845,11 @@
 
         document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
 
-        // --- NOUVELLE FONCTION : GÉNÉRATION DES SUGGESTIONS DYNAMIQUES VIA L'IA MISTRAL AI ---
-        async function fetchSuggestionsIA() {
-            const suggestionsContainer = document.getElementById('suggestions');
-            const apiKey = document.getElementById('mistral-key').value.trim();
-
-            // Structure d'attente visuelle
-            suggestionsContainer.innerHTML = "<div style='color:#7f8c8d; grid-column: 1/-1; text-align:center; padding: 10px;'>🐣 Piu AI prépare des idées uniques...</div>";
-            suggestionsContainer.style.display = 'grid';
-
-            const promptInstructions = `Génère 4 suggestions de départ variées et intéressantes pour un chatbot d'aide générale, de tech, de code ou de divertissement. 
-            Chaque suggestion doit être très courte (maximum 8 mots) et commencer obligatoirement par un émoji pertinent.
-            Réponds EXCLUSIVEMENT sous la forme d'un tableau JSON valide de chaînes de caractères, sans texte explicatif avant ou après, et sans balises de code markdown.
-            Exemple de format : ["👾 Créer un mini-jeu", "🌐 Explorer le Web", "💡 Astuce de code", "🐣 Raconte une blague"]`;
-
-            try {
-                const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-                    body: JSON.stringify({
-                        model: "open-mistral-7b",
-                        messages: [{ role: "user", content: promptInstructions }],
-                        temperature: 0.85 // Plus élevé pour obtenir des idées différentes à chaque fois
-                    })
-                });
-
-                const data = await response.json();
-                let cleanText = data.choices[0].message.content.trim().replace(/```json/g, "").replace(/```/g, "");
-                const arraySugg = JSON.parse(cleanText);
-
-                // On vide et on construit les cartes dynamiquement
-                suggestionsContainer.innerHTML = "";
-                arraySugg.slice(0, 4).forEach(text => {
-                    // Extraction simple de l'émoji s'il existe au début
-                    const emojiMatch = text.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]|\ \p{Emoji}|\p{Emoji})/u);
-                    const emoji = emojiMatch ? emojiMatch[0] : "💡";
-                    const cleanTitle = text.replace(emoji, "").trim();
-
-                    const card = document.createElement('div');
-                    card.className = 'suggestion-card';
-                    card.onclick = () => selectSuggestion(text);
-                    card.innerHTML = `
-                        <span>${cleanTitle}</span>
-                        <span class="suggestion-icon">${emoji}</span>
-                    `;
-                    suggestionsContainer.appendChild(card);
-                });
-
-            } catch (e) {
-                console.error("Erreur de génération dynamique des suggestions, chargement du secours :", e);
-                // Secours généraliste si l'API échoue
-                suggestionsContainer.innerHTML = "";
-                [
-                    {t: "Créer un mini-jeu en HTML", e: "🎮"},
-                    {t: "Comprendre les API", e: "🌐"},
-                    {t: "Histoire de poussin codeur", e: "🐣"},
-                    {t: "Améliorer un projet", e: "🛠️"}
-                ].forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'suggestion-card';
-                    card.onclick = () => selectSuggestion(`${item.e} ${item.t}`);
-                    card.innerHTML = `<span>${item.t}</span><span class="suggestion-icon">${item.e}</span>`;
-                    suggestionsContainer.appendChild(card);
-                });
-            }
-        }
-
         function listenToMessages(chatRef, threadOwner) {
             if (currentListener) currentListener();
 
             currentListener = onValue(chatRef, (snapshot) => {
                 const msgsContainer = document.getElementById('messages');
-                const suggestionsContainer = document.getElementById('suggestions');
                 if (!msgsContainer) return;
                 
                 const data = snapshot.val() || {};
@@ -995,21 +870,6 @@
                 });
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-                // GESTION DE L'AFFICHAGE DES SUGGESTIONS DYNAMIQUES
-                if (suggestionsContainer) {
-                    if (messagesList.length <= 1 && !document.body.classList.contains('admin-mode')) {
-                        // S'il n'y a pas encore de messages, on génère les bulles via l'IA
-                        if (suggestionsContainer.innerHTML === "") {
-                            fetchSuggestionsIA();
-                        } else {
-                            suggestionsContainer.style.display = 'grid';
-                        }
-                    } else {
-                        suggestionsContainer.style.display = 'none';
-                        suggestionsContainer.innerHTML = ""; // Reset pour le prochain chat neuf
-                    }
-                }
-
                 if (!isAiResponding) {
                     const lastMsg = messagesList[messagesList.length - 1];
                     if (lastMsg && lastMsg.sender === 'user') {
@@ -1021,7 +881,7 @@
                             generateChatTitle(lastUserMessage, threadOwner);
                         }
 
-                        if (autoReplyEnabled) fetchMistralAIStream();
+                        if (autoReplyEnabled) fetchMistralAIStream(threadOwner);
                     }
                 }
             });
@@ -1036,13 +896,6 @@
                 const senderType = isAdmin ? 'ai' : 'user';
                 const displayText = isAdmin ? text : `${currentUsername}: ${text}`;
                 
-                // Cache immédiatement les suggestions lors de l'envoi d'un message
-                const sugg = document.getElementById('suggestions');
-                if (sugg) {
-                    sugg.style.display = 'none';
-                    sugg.innerHTML = "";
-                }
-
                 push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
                 input.value = "";
             } else if (!activeChatRef) {
@@ -1082,16 +935,64 @@
             }
         }
 
-        async function fetchMistralAIStream() {
+        // --- MODULE NOUVEAU : ENREGISTREMENT DE LA MÉMOIRE ---
+        async function runLongTermMemoryUpdate(targetUser, lastUserMsg) {
+            if (!targetUser || !lastUserMsg) return;
+            const apiKey = document.getElementById('mistral-key').value.trim();
+            
+            let currentMemory = "";
+            try {
+                const memSnap = await get(ref(db, `chats/${targetUser}/memory`));
+                if(memSnap.exists()) currentMemory = memSnap.val();
+            } catch(e) { console.error(e); }
+
+            try {
+                const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model: "open-mistral-7b",
+                        messages: [
+                            { 
+                                role: "system", 
+                                content: "Tu es le module de mémoire à long terme de Piu AI. Ton rôle est de mettre à jour le profil utilisateur à partir de sa dernière phrase. Analyse le message et extrais uniquement les faits constants et importants (ex: son prénom, ses jeux favoris, ses projets de dev, ses amis). fusionne-les intelligemment avec l'ancienne liste si elle existe. Écris le résultat sous forme d'une liste à puces condensée, claire et en français. Si le dernier message ne contient aucun fait marquant à mémoriser, réécris exactement l'ancienne liste sans rien modifier." 
+                            },
+                            { role: "user", content: `ANCIENNE LISTE DE SOUVENIRS:\n${currentMemory || "Aucun souvenir pour l'instant."}\n\nDERNIER MESSAGE REÇU:\n"${lastUserMsg}"\n\nMets à jour et renvoie la nouvelle liste complète :` }
+                        ]
+                    })
+                });
+                const data = await response.json();
+                const updatedMemory = data.choices[0].message.content.trim();
+                if (updatedMemory) {
+                    await set(ref(db, `chats/${targetUser}/memory`), updatedMemory);
+                }
+            } catch (err) {
+                console.error("Erreur mise à jour mémoire :", err);
+            }
+        }
+
+        async function fetchMistralAIStream(threadOwner) {
             if (!activeChatRef || isAiResponding) return;
             isAiResponding = true;
 
+            const targetUser = threadOwner || currentUsername;
             const apiKey = document.getElementById('mistral-key').value.trim();
             const indicator = document.getElementById('thinking-indicator');
             const msgsContainer = document.getElementById('messages');
 
             if (indicator) indicator.style.display = 'flex';
             if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+            // Récupération de la mémoire à long terme
+            let longTermMemoryText = "Aucune information connue sur cet utilisateur pour l'instant.";
+            try {
+                const memSnapshot = await get(ref(db, `chats/${targetUser}/memory`));
+                if (memSnapshot.exists()) {
+                    longTermMemoryText = memSnapshot.val();
+                }
+            } catch (e) {
+                console.error("Impossible de charger la mémoire :", e);
+            }
 
             let contextMessages = [];
             try {
@@ -1120,9 +1021,11 @@
                 contextMessages.push({ role: 'user', content: lastUserMessage });
             }
 
+            // Injection des instructions de base ET des souvenirs à long terme dans le system prompt
             contextMessages.unshift({ 
                 role: "system", 
-                content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis. Utilise notre historique pour rester logique." 
+                content: `Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis. Utilise notre historique de chat actuel pour rester logique.\n\n` +
+                         `Voici les souvenirs à long terme que tu possèdes sur cet utilisateur (garde-les en tête au fil de tes réponses) :\n${longTermMemoryText}`
             });
 
             const newAiMsgRef = push(activeChatRef);
@@ -1167,12 +1070,14 @@
                                         timestamp: Date.now()
                                     });
                                 }
-                            } catch (err) {
-                                // Ignorer les morceaux incomplets
-                            }
+                            } catch (err) { }
                         }
                     }
                 }
+
+                // Une fois le stream fini avec succès, on déclenche l'analyse en arrière-plan pour la mémoire
+                runLongTermMemoryUpdate(targetUser, lastUserMessage);
+
             } catch (e) { 
                 console.error("Erreur de Stream :", e); 
                 set(newAiMsgRef, { text: "Bip boup... Une petite erreur est survenue ! 🐣", sender: 'ai', timestamp: Date.now() });
@@ -1182,11 +1087,10 @@
             }
         }
 
-        window.selectSuggestion = selectSuggestion; // Rendre accessible globalement pour le onclick inline
-
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
             if (!activeChatRef) return alert("❌ Sélectionne une discussion active.");
-            fetchMistralAIStream();
+            const threadOwner = document.body.classList.contains('admin-mode') ? selectedAdminUser : currentUsername;
+            fetchMistralAIStream(threadOwner);
         });
     </script>
 </body>
