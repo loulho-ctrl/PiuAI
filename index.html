@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Piu AI - Multi-Chats, Streaming & Mémoire</title>
+    <!-- Intégration de Marked.js pour traduire le Markdown en HTML -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
     <style>
         body {
@@ -319,16 +320,37 @@
         .message p { margin: 4px 0; }
         .message ul, .message ol { margin: 5px 0; padding-left: 20px; }
         
-        /* STYLE DES BLOCS DE CODE STYLISÉS */
+        /* --- CONTENEUR ET BOUTON COPIER POUR BLOCS DE CODE (STYLE GEMINI) --- */
+        .code-block-container {
+            position: relative;
+            margin: 12px 0;
+        }
         .message pre {
             background-color: #1e293b;
             color: #f8fafc;
-            padding: 12px;
+            padding: 16px 12px 12px 12px;
             border-radius: 8px;
             overflow-x: auto;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.85rem;
-            margin: 8px 0;
+            margin: 0;
+        }
+        .copy-code-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #f8fafc;
+            border: none;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: normal;
+            transition: background 0.2s;
+        }
+        .copy-code-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
         }
         .message code {
             background-color: rgba(0,0,0,0.05);
@@ -440,6 +462,32 @@
         <div id="mode-switcher-btn">👤</div>
     </div>
 
+    <!-- SCRIPT DE COPIE GLOBAL POUR LE BOUTON DANS LE MARKDOWN -->
+    <script>
+        function copyCode(button) {
+            const container = button.closest('.code-block-container');
+            const codeElement = container.querySelector('code');
+            if (!codeElement) return;
+
+            // Récupère le texte brut du code
+            const codeText = codeElement.innerText;
+
+            // Utilise l'API du presse-papiers du navigateur
+            navigator.clipboard.writeText(codeText).then(() => {
+                button.innerText = "Copié ! ✔️";
+                button.style.backgroundColor = "#2ecc71";
+                
+                // Remet le bouton à son état d'origine après 2 secondes
+                setTimeout(() => {
+                    button.innerText = "Copier";
+                    button.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
+                }, 2000);
+            }).catch(err => {
+                console.error("Erreur lors de la copie : ", err);
+            });
+        }
+    </script>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -474,6 +522,29 @@
         let selectedAdminUser = null;
         let currentActiveThreadId = null;
         let isAiResponding = false;
+
+        // CONFIGURATION DU RENDU PERSONNALISÉ DE MARKED.JS POUR LES CODES BLOCKS
+        const renderer = new marked.Renderer();
+        renderer.code = function(code, infostring, escaped) {
+            // Crée un conteneur HTML avec le bouton Copier inclus au-dessus du bloc pre
+            return `
+                <div class="code-block-container">
+                    <button class="copy-code-btn" onclick="copyCode(this)">Copier</button>
+                    <pre><code>${escapeHtml(code)}</code></pre>
+                </div>
+            `;
+        };
+        marked.setOptions({ renderer: renderer });
+
+        // Fonction utilitaire pour éviter que le code HTML généré n'exécute des balises réelles
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
         document.getElementById('menu-toggle-btn').onclick = (e) => {
             e.stopPropagation();
@@ -782,7 +853,6 @@
 
         document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
 
-        // ICI LA FONCTION EST ENTIÈREMENT TRANSFORMEE POUR ENCODER LE HTML AVEC MARKED
         function listenToMessages(chatRef, threadOwner) {
             if (currentListener) currentListener();
 
@@ -798,7 +868,6 @@
                     const div = document.createElement('div');
                     div.className = `message ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`;
                     
-                    // Si c'est l'IA, on transforme le Markdown en HTML propre. Si c'est l'utilisateur, on laisse en texte brut
                     if (msg.sender === 'ai') {
                         div.innerHTML = marked.parse(msg.text);
                     } else {
