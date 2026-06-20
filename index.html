@@ -39,9 +39,8 @@
         body.user-mode:not(.auth-screen) #user-panel { display: flex; }
         body.client-mode:not(.auth-screen) #user-panel { display: flex; }
 
-        /* SÉCURITÉ : Masquer les contrôles de l'IA pour les clients */
+        /* SÉCURITÉ : Masquer uniquement le commutateur auto-reply pour les clients basiques si besoin */
         body.client-mode .gemini-switch-zone { display: none !important; }
-        body.client-mode .gemini-ai-zone { display: none !important; }
 
         /* --- BOUTON DE FERMETURE DU MENU (MOBILE) --- */
         .close-sidebar-btn {
@@ -313,7 +312,7 @@
         body.client-mode #chat-screen { display: flex; }
 
         body.auth-screen #login-screen { display: flex !important; }
-        body.auth-screen #chat-screen { display: none !important; }
+        body.auth-screen #chat-screen { none !important; }
 
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; }
         .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
@@ -344,7 +343,6 @@
 </head>
 <body class="client-mode">
 
-    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -360,7 +358,6 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
-    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
@@ -377,7 +374,6 @@
             <div class="status-dot"></div>
         </div>
 
-        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -389,7 +385,6 @@
             </div>
         </div>
 
-        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -397,7 +392,6 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
