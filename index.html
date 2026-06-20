@@ -43,7 +43,6 @@
         body.client-mode .gemini-ai-zone { display: none !important; }
 
         .close-sidebar-btn {
-            display: none;
             background: none;
             border: none;
             color: #bdc3c7;
@@ -51,6 +50,7 @@
             cursor: pointer;
             align-self: flex-end;
             padding: 0 5px;
+            display: none;
         }
         .close-sidebar-btn:hover { color: white; }
 
@@ -216,24 +216,28 @@
             background: #ffffff;
             color: #333;
             border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
             z-index: 20;
             display: none;
             overflow: hidden;
+            border: 1px solid #e2e8f0;
         }
         .chat-context-menu button {
             background: none;
-            color: #e74c3c;
+            color: #333;
             border: none;
-            padding: 8px 12px;
+            padding: 10px 14px;
             font-size: 0.85rem;
             width: 100%;
             text-align: left;
             cursor: pointer;
             font-weight: normal;
             border-radius: 0;
+            display: block;
         }
-        .chat-context-menu button:hover { background: #f8d7da; }
+        .chat-context-menu button:hover { background: #f1f5f9; }
+        .chat-context-menu button.delete-btn-menu { color: #e74c3c; border-top: 1px solid #e2e8f0; }
+        .chat-context-menu button.delete-btn-menu:hover { background: #f8d7da; }
 
         .add-chat-btn {
             background-color: #2ecc71;
@@ -621,10 +625,27 @@
             const contextMenu = document.createElement('div');
             contextMenu.className = 'chat-context-menu';
             
+            // OPTION : RENOMMER LA DISCUSSION
+            const renameBtn = document.createElement('button');
+            renameBtn.innerText = '✏️ Renommer';
+            renameBtn.onclick = (e) => {
+                e.stopPropagation();
+                contextMenu.style.display = 'none';
+                const newTitle = prompt("Entrez le nouveau nom de la discussion :", label);
+                if (newTitle && newTitle.trim() !== "") {
+                    update(ref(db, `chats/${username}/threads/${threadId}`), {
+                        title: newTitle.trim()
+                    });
+                }
+            };
+
+            // OPTION : SUPPRIMER LA DISCUSSION
             const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn-menu';
             deleteBtn.innerText = '🗑️ Supprimer';
             deleteBtn.onclick = (e) => {
                 e.stopPropagation();
+                contextMenu.style.display = 'none';
                 if (confirm("Supprimer définitivement cette discussion ?")) {
                     remove(ref(db, `chats/${username}/threads/${threadId}`)).then(() => {
                         if (currentActiveThreadId === threadId) {
@@ -636,6 +657,7 @@
                 }
             };
 
+            contextMenu.appendChild(renameBtn);
             contextMenu.appendChild(deleteBtn);
             wrapper.appendChild(btn);
             wrapper.appendChild(dotsBtn);
@@ -751,13 +773,10 @@
 
                 const lastMsg = messagesList[messagesList.length - 1];
                 if (lastMsg && lastMsg.sender === 'user') {
-                    // Nettoyage précis de la chaîne de texte du message utilisateur
                     lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 1).trim() : lastMsg.text.trim();
                     
-                    // On filtre précisément les messages envoyés par l'humain
                     const userMessages = messagesList.filter(m => m.sender === 'user');
                     
-                    // Si c'est EXACTEMENT son premier message, on force le changement de titre
                     if (userMessages.length === 1 && lastMsg.text === userMessages[0].text) {
                         generateChatTitle(lastUserMessage, threadOwner);
                     }
@@ -786,7 +805,6 @@
             if (e.key === 'Enter') document.getElementById('send-customer-btn').click();
         });
 
-        // RENOMMAGE STABILISÉ
         async function generateChatTitle(firstQuestion, targetUser) {
             if (!currentActiveThreadId || !targetUser) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
@@ -807,7 +825,6 @@
                 let shortTitle = data.choices[0].message.content.trim();
                 shortTitle = shortTitle.replace(/["']/g, "");
 
-                // Mise à jour de la clé racine "title" dans Firebase
                 update(ref(db, `chats/${targetUser}/threads/${currentActiveThreadId}`), {
                     title: shortTitle
                 });
