@@ -884,27 +884,48 @@
 
         document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
 
-        // --- INJECTION ET RENDU DES BULLES DE SUGGESTION ---
-        function renderSuggestionsGrid() {
-            const msgsContainer = document.getElementById('messages');
-            msgsContainer.innerHTML = "";
+        function renderSuggestionsGrid(memoryText) {
+    const msgsContainer = document.getElementById('messages');
+    msgsContainer.innerHTML = "";
 
-            const grid = document.createElement('div');
-            grid.className = "suggestions-grid";
+    const grid = document.createElement('div');
+    grid.className = "suggestions-grid";
 
-            defaultSuggestions.forEach(item => {
-                const card = document.createElement('div');
-                card.className = "suggestion-card";
-                card.innerHTML = `<div class="icon">${item.icon}</div><div>${item.text}</div>`;
-                card.onclick = () => {
-                    document.getElementById('customer-input').value = item.text;
-                    document.getElementById('send-customer-btn').click();
-                };
-                grid.appendChild(card);
-            });
+    // Liste par défaut si pas de mémoire
+    let suggestions = [
+        { icon: "👋", text: "Salut Piu AI !" },
+        { icon: "💡", text: "Tu te souviens de moi ?" },
+        { icon: "🚀", text: "Parlons de mes projets" },
+        { icon: "🎮", text: "Tu veux jouer ?" }
+    ];
 
-            msgsContainer.appendChild(grid);
+    // Personnalisation basée sur la mémoire
+    if (memoryText && memoryText !== "Aucune information connue sur cet utilisateur pour l'instant.") {
+        // On extrait des mots-clés ou lignes de la mémoire pour créer des suggestions
+        const lines = memoryText.split('\n').filter(line => line.trim().length > 5);
+        
+        // On génère des suggestions basées sur les faits mémorisés
+        if (lines.length > 0) {
+            suggestions = lines.slice(0, 4).map(line => ({
+                icon: "🧠",
+                text: `Parlons de : ${line.replace(/[-*]/g, '').trim().substring(0, 25)}...`
+            }));
         }
+    }
+
+    suggestions.forEach(item => {
+        const card = document.createElement('div');
+        card.className = "suggestion-card";
+        card.innerHTML = `<div class="icon">${item.icon}</div><div>${item.text}</div>`;
+        card.onclick = () => {
+            document.getElementById('customer-input').value = item.text;
+            document.getElementById('send-customer-btn').click();
+        };
+        grid.appendChild(card);
+    });
+
+    msgsContainer.appendChild(grid);
+}
 
         function listenToMessages(chatRef, threadOwner) {
             if (currentListener) currentListener();
@@ -916,11 +937,19 @@
                 const data = snapshot.val() || {};
                 const messagesList = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
 
-                // Si le chat est tout neuf et vide, on affiche la grille de suggestions
-                if (messagesList.length === 0) {
-                    renderSuggestionsGrid();
-                    return;
-                }
+                // Remplace le bloc qui vérifie si messagesList.length === 0 par celui-ci :
+                
+              if (messagesList.length === 0) {
+    // On va chercher la mémoire avant d'afficher la grille
+    get(ref(db, `chats/${threadOwner}/memory`)).then((snapshot) => {
+        const memory = snapshot.exists() ? snapshot.val() : "";
+        renderSuggestionsGrid(memory);
+    }).catch(() => {
+        renderSuggestionsGrid(""); // Si erreur, on affiche les suggestions par défaut
+    });
+    return;
+}
+
 
                 msgsContainer.innerHTML = "";
                 messagesList.forEach(msg => {
