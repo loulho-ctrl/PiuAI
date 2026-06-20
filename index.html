@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Piu AI - Multi-Chats & Streaming</title>
+    <title>Piu AI - Multi-Chats, Streaming & Mémoire</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -338,7 +338,6 @@
 </head>
 <body class="client-mode">
 
-    <!-- 1. PANNEAU ADMIN -->
     <div id="operator-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>🧙‍♂️ Mode Magicien</h3>
@@ -354,7 +353,6 @@
         <div id="client-list" class="list-container"></div>
     </div>
 
-    <!-- 2. PANNEAU UTILISATEUR / CLIENT -->
     <div id="user-panel" class="sidebar">
         <button class="close-sidebar-btn" onclick="document.body.classList.remove('sidebar-open')">✕</button>
         <h3>💬 Mes Discussions</h3>
@@ -371,7 +369,6 @@
             <div class="status-dot"></div>
         </div>
 
-        <!-- Écran de Connexion -->
         <div id="login-screen">
             <div class="login-logo">🐣</div>
             <h2>Bienvenue sur Piu AI</h2>
@@ -383,7 +380,6 @@
             </div>
         </div>
 
-        <!-- Écran de Discussion Principal -->
         <div id="chat-screen">
             <div id="messages"></div>
             
@@ -391,7 +387,6 @@
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
 
-            <!-- BARRE DE CHAT STYLE GEMINI -->
             <div class="gemini-input-wrapper">
                 <div class="gemini-input-bar">
                     
@@ -418,7 +413,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, push, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -493,7 +488,6 @@
             document.body.classList.remove('client-mode', 'user-mode');
             document.body.classList.add('admin-mode');
             document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
-            // MASQUER LE BOUTON DE SWITCH CAR ON EST EN MODE ADMIN PAR URL STRICT
             const switcherBtn = document.getElementById('mode-switcher-btn');
             if (switcherBtn) switcherBtn.style.setProperty('display', 'none', 'important');
         } else {
@@ -803,7 +797,7 @@
                         generateChatTitle(lastUserMessage, threadOwner);
                     }
 
-                    if (autoReplyEnabled) fetchMistralAIStream(lastUserMessage);
+                    if (autoReplyEnabled) fetchMistralAIStream();
                 }
             });
         }
@@ -856,7 +850,8 @@
             }
         }
 
-        async function fetchMistralAIStream(question) {
+        // AGGRANDISSEMENT ET MODIFICATION POUR AJOUTER LA MÉMOIRE DE DISCUSSION
+        async function fetchMistralAIStream() {
             if (!activeChatRef || isAiResponding) return;
             isAiResponding = true;
 
@@ -867,6 +862,45 @@
             if (indicator) indicator.style.display = 'flex';
             if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
+            // 1. Lire TOUT l'historique de cette discussion dans Firebase
+            let contextMessages = [];
+            try {
+                const snapshot = await get(activeChatRef);
+                if (snapshot.exists()) {
+                    const rawMsgs = snapshot.val();
+                    // Classer par timestamp pour être sûr de la chronologie
+                    const sortedMsgs = Object.values(rawMsgs).sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // Convertir chaque message au format Mistral (system, user, assistant)
+                    sortedMsgs.forEach(msg => {
+                        let text = msg.text;
+                        // On nettoie le "pseudo: " devant les messages de l'utilisateur si présent
+                        if (msg.sender === 'user' && text.includes(':')) {
+                            text = text.substring(text.indexOf(':') + 1).trim();
+                        }
+
+                        contextMessages.push({
+                            role: msg.sender === 'user' ? 'user' : 'assistant',
+                            content: text
+                        });
+                    });
+                }
+            } catch (err) {
+                console.error("Erreur récupération historique :", err);
+            }
+
+            // Si on n'a rien trouvé, on met au moins la dernière question connue par sécurité
+            if (contextMessages.length === 0) {
+                contextMessages.push({ role: 'user', content: lastUserMessage });
+            }
+
+            // On ajoute notre System Prompt tout en haut du tableau pour dicter le comportement de Piu AI
+            contextMessages.unshift({ 
+                role: "system", 
+                content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis." 
+            });
+
+            // On crée le conteneur du nouveau message de l'IA dans Firebase
             const newAiMsgRef = push(activeChatRef);
             let currentFullText = "";
 
@@ -877,10 +911,7 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         stream: true,
-                        messages: [
-                            { role: "system", content: "Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis." },
-                            { role: "user", content: question }
-                        ]
+                        messages: contextMessages // ON PASSE L'HISTORIQUE COMPLET ICI !
                     })
                 });
 
@@ -929,8 +960,7 @@
 
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
             if (!activeChatRef) return alert("❌ Sélectionne une discussion active.");
-            if (!lastUserMessage) return alert("Aucun message utilisateur à analyser.");
-            fetchMistralAIStream(lastUserMessage);
+            fetchMistralAIStream();
         });
     </script>
 </body>
