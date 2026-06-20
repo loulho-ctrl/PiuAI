@@ -94,6 +94,12 @@
             }
             .send-msg-btn::before { top: 9px !important; }
             .send-msg-btn::after { top: 11px !important; }
+            
+            /* Suggestions mobiles en liste */
+            .suggestions-container {
+                grid-template-columns: 1fr !important;
+                padding: 10px !important;
+            }
         }
 
         .sidebar-input {
@@ -311,8 +317,8 @@
         body.auth-screen #login-screen { display: flex !important; }
         body.auth-screen #chat-screen { display: none !important; }
 
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; }
-        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-color: #f8fafc; position: relative; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; z-index: 2; }
         .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
         
         /* STYLE DU MESSAGE IA AVEC SUPPORT MARKDOWN */
@@ -320,6 +326,44 @@
         .message p { margin: 4px 0; }
         .message ul, .message ol { margin: 5px 0; padding-left: 20px; }
         
+        /* --- SUGGESTIONS DE QUESTIONS AU DÉMARRAGE (STYLE GEMINI) --- */
+        .suggestions-container {
+            display: none; /* Caché par défaut, activé par JS si historique vide */
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 700px;
+            margin: auto auto 20px auto; /* Centré au milieu bas de la zone message */
+            padding: 0 10px;
+            box-sizing: border-box;
+            z-index: 5;
+        }
+        .suggestion-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #475569;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .suggestion-card:hover {
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transform: translateY(-2px);
+        }
+        .suggestion-icon {
+            font-size: 1.2rem;
+            margin-top: 8px;
+            align-self: flex-end;
+        }
+
         /* --- CONTENEUR ET BOUTON COPIER POUR BLOCS DE CODE (STYLE GEMINI) --- */
         .code-block-container {
             position: relative;
@@ -434,6 +478,26 @@
         <div id="chat-screen">
             <div id="messages"></div>
             
+            <!-- BLOC DES SUGGESTIONS DE QUESTIONS DE DEPART -->
+            <div id="suggestions" class="suggestions-container">
+                <div class="suggestion-card" onclick="selectSuggestion('Donne-moi une idée de script en HTML pour un mini-jeu amusant.')">
+                    <span>Créer un mini-jeu en HTML</span>
+                    <span class="suggestion-icon">🎮</span>
+                </div>
+                <div class="suggestion-card" onclick="selectSuggestion('Explique-moi comment fonctionnent les API et comment en connecter une en JavaScript.')">
+                    <span>Comprendre les API</span>
+                    <span class="suggestion-icon">🌐</span>
+                </div>
+                <div class="suggestion-card" onclick="selectSuggestion('Rédige une histoire drôle sur un poussin codeur qui oublie un point-virgule.')">
+                    <span>Histoire de poussin codeur</span>
+                    <span class="suggestion-icon">🐣</span>
+                </div>
+                <div class="suggestion-card" onclick="selectSuggestion('Aide-moi à trouver des idées originales pour améliorer mon jeu de Tower Defense.')">
+                    <span>Améliorer mon Tower Defense</span>
+                    <span class="suggestion-icon">⚔️</span>
+                </div>
+            </div>
+            
             <div id="thinking-indicator" class="piu-thinking">
                 <span>🐣</span><span>🐤</span><span>🐥</span>
             </div>
@@ -469,15 +533,12 @@
             const codeElement = container.querySelector('code');
             if (!codeElement) return;
 
-            // Récupère le texte brut du code
             const codeText = codeElement.innerText;
 
-            // Utilise l'API du presse-papiers du navigateur
             navigator.clipboard.writeText(codeText).then(() => {
                 button.innerText = "Copié ! ✔️";
                 button.style.backgroundColor = "#2ecc71";
                 
-                // Remet le bouton à son état d'origine après 2 secondes
                 setTimeout(() => {
                     button.innerText = "Copier";
                     button.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
@@ -485,6 +546,16 @@
             }).catch(err => {
                 console.error("Erreur lors de la copie : ", err);
             });
+        }
+
+        // Fonction appelée lors du clic sur une carte de suggestion
+        function selectSuggestion(text) {
+            const input = document.getElementById('customer-input');
+            if (input) {
+                input.value = text;
+                // Déclenche automatiquement le clic sur l'envoi
+                document.getElementById('send-customer-btn').click();
+            }
         }
     </script>
 
@@ -526,7 +597,6 @@
         // CONFIGURATION DU RENDU PERSONNALISÉ DE MARKED.JS POUR LES CODES BLOCKS
         const renderer = new marked.Renderer();
         renderer.code = function(code, infostring, escaped) {
-            // Crée un conteneur HTML avec le bouton Copier inclus au-dessus du bloc pre
             return `
                 <div class="code-block-container">
                     <button class="copy-code-btn" onclick="copyCode(this)">Copier</button>
@@ -536,7 +606,6 @@
         };
         marked.setOptions({ renderer: renderer });
 
-        // Fonction utilitaire pour éviter que le code HTML généré n'exécute des balises réelles
         function escapeHtml(text) {
             return text
                 .replace(/&/g, "&amp;")
@@ -753,6 +822,7 @@
                             currentActiveThreadId = null;
                             activeChatRef = null;
                             document.getElementById('messages').innerHTML = "";
+                            document.getElementById('suggestions').style.display = 'none';
                         }
                     });
                 }
@@ -858,6 +928,7 @@
 
             currentListener = onValue(chatRef, (snapshot) => {
                 const msgsContainer = document.getElementById('messages');
+                const suggestionsContainer = document.getElementById('suggestions');
                 if (!msgsContainer) return;
                 
                 const data = snapshot.val() || {};
@@ -877,6 +948,16 @@
                     msgsContainer.appendChild(div);
                 });
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+                // GESTION DE L'AFFICHAGE DES SUGGESTIONS
+                // S'il n'y a que le premier message d'accueil de l'IA (longueur <= 1), on affiche les bulles
+                if (suggestionsContainer) {
+                    if (messagesList.length <= 1 && !document.body.classList.contains('admin-mode')) {
+                        suggestionsContainer.style.display = 'grid';
+                    } else {
+                        suggestionsContainer.style.display = 'none';
+                    }
+                }
 
                 if (!isAiResponding) {
                     const lastMsg = messagesList[messagesList.length - 1];
@@ -904,6 +985,10 @@
                 const senderType = isAdmin ? 'ai' : 'user';
                 const displayText = isAdmin ? text : `${currentUsername}: ${text}`;
                 
+                // Cache immédiatement les suggestions lors de l'envoi d'un message
+                const sugg = document.getElementById('suggestions');
+                if (sugg) sugg.style.display = 'none';
+
                 push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
                 input.value = "";
             } else if (!activeChatRef) {
@@ -1042,6 +1127,8 @@
                 if (indicator) indicator.style.display = 'none';
             }
         }
+
+        window.selectSuggestion = selectSuggestion; // Rendre accessible globalement pour le onclick inline
 
         document.getElementById('generate-ai-btn').addEventListener('click', () => {
             if (!activeChatRef) return alert("❌ Sélectionne une discussion active.");
