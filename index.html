@@ -612,38 +612,32 @@
             }, 1000);
         }
 
-                // --- BOUTON D'ENVOI UNIQUE (VERSION COMPATIBLE PSEUDO) ---
+                        // --- BOUTON D'ENVOI CORRIGÉ (TEXTE + IMAGE) ---
         document.getElementById('send-customer-btn').addEventListener('click', () => {
             if (isAiResponding) return;
             const input = document.getElementById('customer-input');
             const text = input.value.trim();
             
             if (text !== "" && activeChatRef) {
-                // On remplace les apostrophes bizarres pour être tranquille
-                const cleanText = text.replace(/[’']/g, "'"); 
-                
-                // On cherche si "/image " est écrit dans le message
-                const imageIndex = cleanText.toLowerCase().indexOf("/image ");
-
-                if (imageIndex !== -1) {
-                    // On extrait tout ce qui se trouve APRÈS "/image "
-                    const prompt = cleanText.substring(imageIndex + 7).trim();
-                    
-                    if (prompt !== "") {
-                        generateImage(prompt);
-                        input.value = ""; // Vide la zone de texte
-                        return; // Stoppe ici pour ne pas envoyer le texte brut au chat
-                    }
-                }
-
-                // Comportement normal pour les messages textuels classiques
                 const isAdmin = document.body.classList.contains('admin-mode');
                 const senderType = isAdmin ? 'ai' : 'user';
                 const displayText = isAdmin ? text : `${currentUsername}: ${text}`;
                 
+                // 1. On envoie TOUJOURS le texte au chat (pour que tu le vois)
                 push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
-                input.value = "";
                 
+                // 2. On vérifie si c'est une commande image
+                const cleanText = text.replace(/[’']/g, "'"); 
+                const imageIndex = cleanText.toLowerCase().indexOf("/image ");
+
+                if (imageIndex !== -1) {
+                    const prompt = cleanText.substring(imageIndex + 7).trim();
+                    if (prompt !== "") {
+                        generateImage(prompt);
+                    }
+                }
+                
+                input.value = ""; // On vide l'input
             } else if (!activeChatRef) { 
                 alert("❌ Sélectionne ou crée une discussion d'abord !"); 
             }
