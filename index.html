@@ -523,11 +523,10 @@
         function speakMessage(text) {
     window.speechSynthesis.cancel();
     
-    // 1. On supprime les emojis
-    // 2. On supprime les astérisques (*)
+    // Nettoyage : suppression des emojis et des astérisques
     const cleanedText = text
         .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
-        .replace(/\*/g, ''); 
+        .replace(/\*/g, '');
     
     const utterance = new SpeechSynthesisUtterance(cleanedText);
     utterance.lang = 'fr-FR';
@@ -913,18 +912,21 @@
                     div.className = `message ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`;
                     
                     if (msg.sender === 'ai') {
-                        div.innerHTML = marked.parse(msg.text);
-                        // --- AJOUT DU BOUTON VOCAL ICI ---
-                        const speakBtn = document.createElement('button');
-                        speakBtn.className = 'speak-btn';
-                        speakBtn.innerHTML = '🔊';
-                        speakBtn.title = "Écouter la réponse";
-                        speakBtn.onclick = () => speakMessage(msg.text);
-                        div.appendChild(speakBtn);
-                    } else {
-                        div.innerText = msg.text;
-                    }
-                    msgsContainer.appendChild(div);
+    div.innerHTML = marked.parse(msg.text);
+    
+    // Création du bouton haut-parleur
+    const speakBtn = document.createElement('button');
+    speakBtn.className = 'speak-btn';
+    speakBtn.innerHTML = '🔊';
+    // Le texte s'affichera au survol de la souris
+    speakBtn.title = "Lire le message à haute voix"; 
+    speakBtn.onclick = () => speakMessage(msg.text);
+    div.appendChild(speakBtn);
+} else {
+    div.innerText = msg.text;
+}
+msgsContainer.appendChild(div);
+
                 });
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
