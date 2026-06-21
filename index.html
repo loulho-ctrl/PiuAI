@@ -6,6 +6,30 @@
     <title>Piu AI - Multi-Chats, Streaming & Mémoire</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
     <style>
+        /* Tout ton CSS va ici à l'intérieur */
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+            margin: auto;
+        }
+
+        .primary-btn { width: 100%; background-color: #3498db; margin-bottom: 10px; }
+        .google-btn { width: 100%; background-color: #4285f4; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        .toggle-text { font-size: 0.9rem; color: #666; }
+        #toggle-mode-link { color: #3498db; cursor: pointer; font-weight: bold; }
+
+        /* ... (Ton autre CSS existant) ... */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; display: flex; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; position: relative; }
+        /* Reste de ton CSS actuel ici */
+    </style>
+</head>
+
+  <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f6f9;
@@ -461,17 +485,19 @@
             <div class="status-dot"></div>
         </div>
 
-        <div id="login-screen">
+       <div id="login-screen" class="login-card">
     <div class="login-logo">🐣</div>
-    <h2>Bienvenue sur Piu AI</h2>
+    <h2 id="form-title">Connexion</h2>
     
-    <input type="text" id="username-input" class="login-input" placeholder="Nom d'utilisateur...">
+    <input type="email" id="email-input" class="login-input" placeholder="Adresse email...">
     <input type="password" id="password-input" class="login-input" placeholder="Mot de passe...">
     
-    <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button id="login-btn">Se connecter</button>
-        <button id="register-btn" style="background-color: #2ecc71;">Créer un compte</button>
-    </div>
+    <button id="main-action-btn" class="primary-btn">Se connecter</button>
+    
+    <button id="google-login-btn" class="google-btn">Se connecter avec Google</button>
+
+    <p class="toggle-text">Pas de compte ? <span id="toggle-mode-link">Créer un compte</span></p>
+</div>
 
     <button id="google-login-btn" style="background-color: #4285f4; margin-top: 15px; width: 100%; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 5px; font-weight: bold;">
         Se connecter avec Google
@@ -708,23 +734,30 @@
             updateButtonVisibility();
         });
 
-        document.getElementById('register-btn').onclick = function() {
-            const name = document.getElementById('username-input').value.trim();
-            const password = document.getElementById('password-input').value.trim();
-            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-            createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                .then(() => alert("🎉 Compte créé !"))
-                .catch((err) => alert("Erreur: " + err.message));
-        };
+        let isLoginMode = true;
+const mainBtn = document.getElementById('main-action-btn');
+const toggleLink = document.getElementById('toggle-mode-link');
+const formTitle = document.getElementById('form-title');
 
-        document.getElementById('login-btn').onclick = function() {
-            const name = document.getElementById('username-input').value.trim();
-            const password = document.getElementById('password-input').value.trim();
-            if (!name || !password) return alert("⚠️ Remplis tous les champs !");
-            signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
-                .then(() => alert("🔓 Connecté !"))
-                .catch(() => alert("❌ Identifiants incorrects."));
-        };
+toggleLink.onclick = () => {
+    isLoginMode = !isLoginMode;
+    formTitle.innerText = isLoginMode ? "Connexion" : "Créer un compte";
+    mainBtn.innerText = isLoginMode ? "Se connecter" : "S'inscrire";
+    toggleLink.innerText = isLoginMode ? "Pas de compte ? Créer un compte" : "Déjà un compte ? Se connecter";
+};
+
+mainBtn.onclick = () => {
+    const name = document.getElementById('username-input').value.trim();
+    const password = document.getElementById('password-input').value.trim();
+    
+    if (isLoginMode) {
+        signInWithEmailAndPassword(auth, makeFakeEmail(name), password)
+            .catch(() => alert("❌ Identifiants incorrects."));
+    } else {
+        createUserWithEmailAndPassword(auth, makeFakeEmail(name), password)
+            .catch((err) => alert("Erreur: " + err.message));
+    }
+};
         
 // --- AJOUTE CE BLOC ICI ---
         const provider = new GoogleAuthProvider();
