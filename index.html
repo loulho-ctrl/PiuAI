@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Piu AI - Multi-Chats, Streaming & Mémoire</title>
-    <!-- Intégration de Marked.js pour traduire le Markdown en HTML -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
     <style>
         body {
@@ -18,6 +17,18 @@
             overflow: hidden;
             position: relative;
         }
+
+        /* --- STYLE DU BOUTON VOCAL --- */
+        .speak-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-left: 10px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .speak-btn:hover { opacity: 1; }
 
         /* --- PANNEAUX LATÉRAUX (GAUCHE) --- */
         .sidebar {
@@ -40,7 +51,6 @@
         body.user-mode:not(.auth-screen) #user-panel { display: flex; }
         body.client-mode:not(.auth-screen) #user-panel { display: flex; }
 
-        /* SÉCURITÉ : Masquer les contrôles d'automatisation IA et le bouton forcer l'IA pour les clients */
         body.client-mode .gemini-switch-zone { display: none !important; }
         body.client-mode .gemini-ai-zone { display: none !important; }
 
@@ -56,7 +66,6 @@
         }
         .close-sidebar-btn:hover { color: white; }
 
-        /* --- RESPONSIVE : ADAPTATION (MOBILE ÉCRANS < 768px) --- */
         @media (max-width: 768px) {
             body.admin-mode #operator-panel,
             body.user-mode:not(.auth-screen) #user-panel,
@@ -254,7 +263,6 @@
         }
         .add-chat-btn:hover { background-color: #27ae60; }
 
-        /* --- BARRE DE CHAT DESIGN STYLE GEMINI --- */
         .gemini-input-wrapper {
             padding: 10px 15px;
             background: white;
@@ -300,7 +308,6 @@
         .piu-trigger-btn { background-color: #ffda79; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; transition: transform 0.1s ease, background-color 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .piu-trigger-btn:hover { background-color: #f7b731; transform: scale(1.05); }
 
-        /* --- DESIGN DES BULLES DE SUGGESTION --- */
         .suggestions-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -337,7 +344,6 @@
             margin-bottom: 8px;
         }
 
-        /* --- GESTION DES ÉCRANS --- */
         #login-screen { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; padding: 20px; }
         #chat-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; height: 100%; }
 
@@ -352,12 +358,10 @@
         .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; margin: 5px 0; word-wrap: break-word; font-size: 0.95rem; }
         .user-msg { background-color: #e1ffd4; align-self: flex-end; border-bottom-right-radius: 2px; }
         
-        /* STYLE DU MESSAGE IA AVEC SUPPORT MARKDOWN */
         .ai-msg { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
         .message p { margin: 4px 0; }
         .message ul, .message ol { margin: 5px 0; padding-left: 20px; }
         
-        /* --- CONTENEUR ET BOUTON COPIER POUR BLOCS DE CODE (STYLE GEMINI) --- */
         .code-block-container {
             position: relative;
             margin: 12px 0;
@@ -499,26 +503,30 @@
         <div id="mode-switcher-btn">👤</div>
     </div>
 
-    <!-- SCRIPT DE COPIE GLOBAL POUR LE BOUTON DANS LE MARKDOWN -->
     <script>
         function copyCode(button) {
             const container = button.closest('.code-block-container');
             const codeElement = container.querySelector('code');
             if (!codeElement) return;
-
             const codeText = codeElement.innerText;
-
             navigator.clipboard.writeText(codeText).then(() => {
                 button.innerText = "Copié ! ✔️";
                 button.style.backgroundColor = "#2ecc71";
-                
                 setTimeout(() => {
                     button.innerText = "Copier";
                     button.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
                 }, 2000);
-            }).catch(err => {
-                console.error("Erreur lors de la copie : ", err);
             });
+        }
+        
+        // --- FONCTION VOCALE ---
+        function speakMessage(text) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'fr-FR';
+            utterance.pitch = 1.6; // Voix un peu aiguë (poussin)
+            utterance.rate = 1.1;  // Un peu plus rapide
+            window.speechSynthesis.speak(utterance);
         }
     </script>
 
@@ -556,9 +564,6 @@
         let selectedAdminUser = null;
         let currentActiveThreadId = null;
         let isAiResponding = false;
-
-        // Les suggestions seront générées dynamiquement via l'IA et la mémoire Firebase
-        let dynamicSuggestions = [];
 
         const renderer = new marked.Renderer();
         renderer.code = function(code, infostring, escaped) {
@@ -604,7 +609,6 @@
         function updateButtonVisibility() {
             const btn = document.getElementById('add-new-chat-btn');
             if (!btn) return;
-            
             const isUserMode = document.body.classList.contains('user-mode');
             const isClientMode = document.body.classList.contains('client-mode');
             const hasUser = auth.currentUser != null;
@@ -617,7 +621,6 @@
         }
 
         const urlParams = new URLSearchParams(window.location.search);
-        
         if (urlParams.get('admin') === 'true') {
             document.body.classList.remove('client-mode', 'user-mode');
             document.body.classList.add('admin-mode');
@@ -650,19 +653,12 @@
                 if (document.body.classList.contains('admin-mode')) {
                     document.body.classList.remove('admin-mode');
                     document.body.classList.add('user-mode');
-                    
                     modeSwitcher.innerText = "👑";
                     document.getElementById('header-title').innerText = "Piu AI";
-                    
-                    if (!auth.currentUser) {
-                        document.body.classList.add('auth-screen');
-                    } else {
-                        document.body.classList.remove('auth-screen');
-                    }
+                    if (!auth.currentUser) { document.body.classList.add('auth-screen'); } else { document.body.classList.remove('auth-screen'); }
                 } else if (document.body.classList.contains('user-mode')) {
                     document.body.classList.remove('user-mode', 'auth-screen');
                     document.body.classList.add('admin-mode');
-                    
                     modeSwitcher.innerText = "👤";
                     document.getElementById('header-title').innerText = "Piu AI (Console Admin)";
                     currentUsername = "AdminMagicien";
@@ -673,7 +669,6 @@
 
         onAuthStateChanged(auth, (user) => {
             const isUserOrClient = document.body.classList.contains('user-mode') || document.body.classList.contains('client-mode');
-            
             if (user) {
                 if (isUserOrClient) {
                     document.body.classList.remove('auth-screen');
@@ -694,10 +689,7 @@
                     document.getElementById('user-threads-list').innerHTML = "";
                 }
             }
-
-            if (document.body.classList.contains('admin-mode')) {
-                document.body.classList.remove('auth-screen');
-            }
+            if (document.body.classList.contains('admin-mode')) { document.body.classList.remove('auth-screen'); }
             updateButtonVisibility();
         });
 
@@ -729,11 +721,9 @@
         function createChatRow(label, threadId, username, isActive, isSubThread = false) {
             const wrapper = document.createElement('div');
             wrapper.className = `chat-item-wrapper ${isSubThread ? 'thread-wrapper' : ''}`;
-
             const btn = document.createElement('button');
             btn.className = `nav-btn ${isSubThread ? 'thread-btn' : ''} ${isActive ? 'active' : ''}`;
             btn.innerText = label;
-
             btn.onclick = () => {
                 currentActiveThreadId = threadId;
                 document.body.classList.remove('sidebar-open'); 
@@ -761,7 +751,6 @@
 
             const contextMenu = document.createElement('div');
             contextMenu.className = 'chat-context-menu';
-            
             const renameBtn = document.createElement('button');
             renameBtn.innerText = '✏️ Renommer';
             renameBtn.onclick = (e) => {
@@ -769,12 +758,9 @@
                 contextMenu.style.display = 'none';
                 const newTitle = prompt("Entrez le nouveau nom de la discussion :", label);
                 if (newTitle && newTitle.trim() !== "") {
-                    update(ref(db, `chats/${username}/threads/${threadId}`), {
-                        title: newTitle.trim()
-                    });
+                    update(ref(db, `chats/${username}/threads/${threadId}`), { title: newTitle.trim() });
                 }
             };
-
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn-menu';
             deleteBtn.innerText = '🗑️ Supprimer';
@@ -791,13 +777,11 @@
                     });
                 }
             };
-
             contextMenu.appendChild(renameBtn);
             contextMenu.appendChild(deleteBtn);
             wrapper.appendChild(btn);
             wrapper.appendChild(dotsBtn);
             wrapper.appendChild(contextMenu);
-
             return wrapper;
         }
 
@@ -806,21 +790,14 @@
                 const threads = snapshot.val() || {};
                 const listContainer = document.getElementById('user-threads-list');
                 listContainer.innerHTML = "";
-
                 const threadIds = Object.keys(threads);
-
-                if (threadIds.length === 0) {
-                    createNewThread(username);
-                    return;
-                }
-
+                if (threadIds.length === 0) { createNewThread(username); return; }
                 threadIds.forEach((id) => {
                     const isActive = (currentActiveThreadId === id);
                     const label = threads[id].title || `💬 Discussion en cours`;
                     const chatRow = createChatRow(label, id, username, isActive, false);
                     listContainer.appendChild(chatRow);
                 });
-
                 if (!currentActiveThreadId && threadIds.length > 0) {
                     const firstBtn = listContainer.firstChild.querySelector('.nav-btn');
                     if(firstBtn) firstBtn.click();
@@ -831,38 +808,27 @@
         function createNewThread(username) {
             const newThreadRef = push(ref(db, `chats/${username}/threads`));
             currentActiveThreadId = newThreadRef.key;
-            
-            set(ref(db, `chats/${username}/threads/${currentActiveThreadId}`), {
-                title: "💬 Nouvelle discussion"
-            });
-
-            // On initialise le fil totalement vide pour que les bulles apparaissent
+            set(ref(db, `chats/${username}/threads/${currentActiveThreadId}`), { title: "💬 Nouvelle discussion" });
             set(ref(db, `chats/${username}/threads/${currentActiveThreadId}/messages`), {});
         }
 
-        document.getElementById('add-new-chat-btn').onclick = () => {
-            if (currentUsername) createNewThread(currentUsername);
-        };
+        document.getElementById('add-new-chat-btn').onclick = () => { if (currentUsername) createNewThread(currentUsername); };
 
         function renderAdminPanel() {
             const listContainer = document.getElementById('client-list');
             if (!listContainer) return;
             listContainer.innerHTML = "";
-
             const searchTerm = document.getElementById('search-user-bar').value.toLowerCase().trim();
             const users = Object.keys(allRawData);
-
             users.filter(name => name.toLowerCase().includes(searchTerm)).forEach(name => {
                 const userBtn = document.createElement('button');
                 userBtn.className = `nav-btn ${selectedAdminUser === name ? 'active' : ''}`;
                 userBtn.innerText = "👤 " + name;
-                
                 userBtn.onclick = () => {
                     selectedAdminUser = (selectedAdminUser === name) ? null : name;
                     renderAdminPanel();
                 };
                 listContainer.appendChild(userBtn);
-
                 if (selectedAdminUser === name) {
                     const threads = allRawData[name].threads || {};
                     Object.keys(threads).forEach((threadId) => {
@@ -877,79 +843,59 @@
 
         onValue(ref(db, 'chats'), (snapshot) => {
             allRawData = snapshot.val() || {};
-            if (document.body.classList.contains('admin-mode')) {
-                renderAdminPanel();
-            }
+            if (document.body.classList.contains('admin-mode')) { renderAdminPanel(); }
         });
 
         document.getElementById('search-user-bar').addEventListener('input', renderAdminPanel);
 
         function renderSuggestionsGrid(memoryText) {
-    const msgsContainer = document.getElementById('messages');
-    msgsContainer.innerHTML = "";
-
-    const grid = document.createElement('div');
-    grid.className = "suggestions-grid";
-
-    // Liste par défaut si pas de mémoire
-    let suggestions = [
-        { icon: "👋", text: "Salut Piu AI !" },
-        { icon: "💡", text: "Tu te souviens de moi ?" },
-        { icon: "🚀", text: "Parlons de mes projets" },
-        { icon: "🎮", text: "Tu veux jouer ?" }
-    ];
-
-    // Personnalisation basée sur la mémoire
-    if (memoryText && memoryText !== "Aucune information connue sur cet utilisateur pour l'instant.") {
-        // On extrait des mots-clés ou lignes de la mémoire pour créer des suggestions
-        const lines = memoryText.split('\n').filter(line => line.trim().length > 5);
-        
-        // On génère des suggestions basées sur les faits mémorisés
-        if (lines.length > 0) {
-            suggestions = lines.slice(0, 4).map(line => ({
-                icon: "🧠",
-                text: `Parlons de : ${line.replace(/[-*]/g, '').trim().substring(0, 25)}...`
-            }));
+            const msgsContainer = document.getElementById('messages');
+            msgsContainer.innerHTML = "";
+            const grid = document.createElement('div');
+            grid.className = "suggestions-grid";
+            let suggestions = [
+                { icon: "👋", text: "Salut Piu AI !" },
+                { icon: "💡", text: "Tu te souviens de moi ?" },
+                { icon: "🚀", text: "Parlons de mes projets" },
+                { icon: "🎮", text: "Tu veux jouer ?" }
+            ];
+            if (memoryText && memoryText !== "Aucune information connue sur cet utilisateur pour l'instant.") {
+                const lines = memoryText.split('\n').filter(line => line.trim().length > 5);
+                if (lines.length > 0) {
+                    suggestions = lines.slice(0, 4).map(line => ({
+                        icon: "🧠",
+                        text: `Parlons de : ${line.replace(/[-*]/g, '').trim().substring(0, 25)}...`
+                    }));
+                }
+            }
+            suggestions.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "suggestion-card";
+                card.innerHTML = `<div class="icon">${item.icon}</div><div>${item.text}</div>`;
+                card.onclick = () => {
+                    document.getElementById('customer-input').value = item.text;
+                    document.getElementById('send-customer-btn').click();
+                };
+                grid.appendChild(card);
+            });
+            msgsContainer.appendChild(grid);
         }
-    }
-
-    suggestions.forEach(item => {
-        const card = document.createElement('div');
-        card.className = "suggestion-card";
-        card.innerHTML = `<div class="icon">${item.icon}</div><div>${item.text}</div>`;
-        card.onclick = () => {
-            document.getElementById('customer-input').value = item.text;
-            document.getElementById('send-customer-btn').click();
-        };
-        grid.appendChild(card);
-    });
-
-    msgsContainer.appendChild(grid);
-}
 
         function listenToMessages(chatRef, threadOwner) {
             if (currentListener) currentListener();
-
             currentListener = onValue(chatRef, (snapshot) => {
                 const msgsContainer = document.getElementById('messages');
                 if (!msgsContainer) return;
-                
                 const data = snapshot.val() || {};
                 const messagesList = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-
-                // Remplace le bloc qui vérifie si messagesList.length === 0 par celui-ci :
                 
-              if (messagesList.length === 0) {
-    // On va chercher la mémoire avant d'afficher la grille
-    get(ref(db, `chats/${threadOwner}/memory`)).then((snapshot) => {
-        const memory = snapshot.exists() ? snapshot.val() : "";
-        renderSuggestionsGrid(memory);
-    }).catch(() => {
-        renderSuggestionsGrid(""); // Si erreur, on affiche les suggestions par défaut
-    });
-    return;
-}
-
+                if (messagesList.length === 0) {
+                    get(ref(db, `chats/${threadOwner}/memory`)).then((snapshot) => {
+                        const memory = snapshot.exists() ? snapshot.val() : "";
+                        renderSuggestionsGrid(memory);
+                    }).catch(() => { renderSuggestionsGrid(""); });
+                    return;
+                }
 
                 msgsContainer.innerHTML = "";
                 messagesList.forEach(msg => {
@@ -958,10 +904,16 @@
                     
                     if (msg.sender === 'ai') {
                         div.innerHTML = marked.parse(msg.text);
+                        // --- AJOUT DU BOUTON VOCAL ICI ---
+                        const speakBtn = document.createElement('button');
+                        speakBtn.className = 'speak-btn';
+                        speakBtn.innerHTML = '🔊';
+                        speakBtn.title = "Écouter la réponse";
+                        speakBtn.onclick = () => speakMessage(msg.text);
+                        div.appendChild(speakBtn);
                     } else {
                         div.innerText = msg.text;
                     }
-                    
                     msgsContainer.appendChild(div);
                 });
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
@@ -970,13 +922,10 @@
                     const lastMsg = messagesList[messagesList.length - 1];
                     if (lastMsg && lastMsg.sender === 'user') {
                         lastUserMessage = lastMsg.text.includes(':') ? lastMsg.text.substring(lastMsg.text.indexOf(':') + 1).trim() : lastMsg.text.trim();
-                        
                         const userMessages = messagesList.filter(m => m.sender === 'user');
-                        
                         if (userMessages.length === 1 && lastMsg.text === userMessages[0].text) {
                             generateChatTitle(lastUserMessage, threadOwner);
                         }
-
                         if (autoReplyEnabled) fetchMistralAIStream(threadOwner);
                     }
                 }
@@ -991,12 +940,9 @@
                 const isAdmin = document.body.classList.contains('admin-mode');
                 const senderType = isAdmin ? 'ai' : 'user';
                 const displayText = isAdmin ? text : `${currentUsername}: ${text}`;
-                
                 push(activeChatRef, { text: displayText, sender: senderType, timestamp: Date.now() });
                 input.value = "";
-            } else if (!activeChatRef) {
-                alert("❌ Sélectionne ou crée une discussion d'abord !");
-            }
+            } else if (!activeChatRef) { alert("❌ Sélectionne ou crée une discussion d'abord !"); }
         });
 
         document.getElementById('customer-input').addEventListener('keypress', (e) => {
@@ -1006,7 +952,6 @@
         async function generateChatTitle(firstQuestion, targetUser) {
             if (!currentActiveThreadId || !targetUser) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
-            
             try {
                 const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
                     method: "POST",
@@ -1020,22 +965,14 @@
                     })
                 });
                 const data = await response.json();
-                let shortTitle = data.choices[0].message.content.trim();
-                shortTitle = shortTitle.replace(/["']/g, "");
-
-                update(ref(db, `chats/${targetUser}/threads/${currentActiveThreadId}`), {
-                    title: shortTitle
-                });
-            } catch (e) {
-                console.error("Erreur renommage automatique :", e);
-            }
+                let shortTitle = data.choices[0].message.content.trim().replace(/["']/g, "");
+                update(ref(db, `chats/${targetUser}/threads/${currentActiveThreadId}`), { title: shortTitle });
+            } catch (e) { console.error("Erreur renommage automatique :", e); }
         }
 
-        // --- ENREGISTREMENT DE LA MÉMOIRE ---
         async function runLongTermMemoryUpdate(targetUser, lastUserMsg) {
             if (!targetUser || !lastUserMsg) return;
             const apiKey = document.getElementById('mistral-key').value.trim();
-            
             let currentMemory = "";
             try {
                 const memSnap = await get(ref(db, `chats/${targetUser}/memory`));
@@ -1049,46 +986,32 @@
                     body: JSON.stringify({
                         model: "open-mistral-7b",
                         messages: [
-                            { 
-                                role: "system", 
-                                content: "Tu es le module de mémoire à long terme de Piu AI. Ton rôle est de mettre à jour le profil utilisateur à partir de sa dernière phrase. Analyse le message et extrais uniquement les faits constants et importants (ex: son prénom, ses jeux favoris, ses projets de dev, ses amis). fusionne-les intelligemment avec l'ancienne liste si elle existe. Écris le résultat sous forme d'une liste à puces condensée, claire et en français. Si le dernier message ne contient aucun fait marquant à mémoriser, réécris exactement l'ancienne liste sans rien modifier." 
-                            },
+                            { role: "system", content: "Tu es le module de mémoire à long terme de Piu AI. Ton rôle est de mettre à jour le profil utilisateur à partir de sa dernière phrase. Analyse le message et extrais uniquement les faits constants et importants (ex: son prénom, ses jeux favoris, ses projets de dev, ses amis). fusionne-les intelligemment avec l'ancienne liste si elle existe. Écris le résultat sous forme d'une liste à puces condensée, claire et en français. Si le dernier message ne contient aucun fait marquant à mémoriser, réécris exactement l'ancienne liste sans rien modifier." },
                             { role: "user", content: `ANCIENNE LISTE DE SOUVENIRS:\n${currentMemory || "Aucun souvenir pour l'instant."}\n\nDERNIER MESSAGE REÇU:\n"${lastUserMsg}"\n\nMets à jour et renvoie la nouvelle liste complète :` }
                         ]
                     })
                 });
                 const data = await response.json();
                 const updatedMemory = data.choices[0].message.content.trim();
-                if (updatedMemory) {
-                    await set(ref(db, `chats/${targetUser}/memory`), updatedMemory);
-                }
-            } catch (err) {
-                console.error("Erreur mise à jour mémoire :", err);
-            }
+                if (updatedMemory) { await set(ref(db, `chats/${targetUser}/memory`), updatedMemory); }
+            } catch (err) { console.error("Erreur mise à jour mémoire :", err); }
         }
 
         async function fetchMistralAIStream(threadOwner) {
             if (!activeChatRef || isAiResponding) return;
             isAiResponding = true;
-
             const targetUser = threadOwner || currentUsername;
             const apiKey = document.getElementById('mistral-key').value.trim();
             const indicator = document.getElementById('thinking-indicator');
             const msgsContainer = document.getElementById('messages');
-
             if (indicator) indicator.style.display = 'flex';
             if (msgsContainer) msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-            // Récupération de la mémoire à long terme
             let longTermMemoryText = "Aucune information connue sur cet utilisateur pour l'instant.";
             try {
                 const memSnapshot = await get(ref(db, `chats/${targetUser}/memory`));
-                if (memSnapshot.exists()) {
-                    longTermMemoryText = memSnapshot.val();
-                }
-            } catch (e) {
-                console.error("Impossible de charger la mémoire :", e);
-            }
+                if (memSnapshot.exists()) { longTermMemoryText = memSnapshot.val(); }
+            } catch (e) { console.error("Impossible de charger la mémoire :", e); }
 
             let contextMessages = [];
             try {
@@ -1096,28 +1019,15 @@
                 if (snapshot.exists()) {
                     const rawMsgs = snapshot.val();
                     const sortedMsgs = Object.values(rawMsgs).sort((a, b) => a.timestamp - b.timestamp);
-                    
                     sortedMsgs.forEach(msg => {
                         let text = msg.text;
-                        if (msg.sender === 'user' && text.includes(':')) {
-                            text = text.substring(text.indexOf(':') + 1).trim();
-                        }
-
-                        contextMessages.push({
-                            role: msg.sender === 'user' ? 'user' : 'assistant',
-                            content: text
-                        });
+                        if (msg.sender === 'user' && text.includes(':')) { text = text.substring(text.indexOf(':') + 1).trim(); }
+                        contextMessages.push({ role: msg.sender === 'user' ? 'user' : 'assistant', content: text });
                     });
                 }
-            } catch (err) {
-                console.error("Erreur récupération historique :", err);
-            }
+            } catch (err) { console.error("Erreur récupération historique :", err); }
 
-            if (contextMessages.length === 0) {
-                contextMessages.push({ role: 'user', content: lastUserMessage });
-            }
-
-            // Injection de la mémoire à long terme dans le système prompt
+            if (contextMessages.length === 0) { contextMessages.push({ role: 'user', content: lastUserMessage }); }
             contextMessages.unshift({ 
                 role: "system", 
                 content: `Tu es Piu AI, une IA amicale au format poussin. Réponds en français de manière concise et ajoute quelques émojis. Utilise notre historique de chat actuel pour rester logique.\n\n` +
@@ -1126,54 +1036,36 @@
 
             const newAiMsgRef = push(activeChatRef);
             let currentFullText = "";
-
             try {
                 const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-                    body: JSON.stringify({
-                        model: "open-mistral-7b",
-                        stream: true,
-                        messages: contextMessages
-                    })
+                    body: JSON.stringify({ model: "open-mistral-7b", stream: true, messages: contextMessages })
                 });
-
                 if (indicator) indicator.style.display = 'none';
-
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
-
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-
                     const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split("\n");
-
                     for (const line of lines) {
                         const cleanedLine = line.trim();
                         if (cleanedLine === "" || cleanedLine === "data: [DONE]") continue;
-
                         if (cleanedLine.startsWith("data: ")) {
                             try {
                                 const parsed = JSON.parse(cleanedLine.replace("data: ", ""));
                                 const textToken = parsed.choices[0].delta.content;
                                 if (textToken) {
                                     currentFullText += textToken;
-                                    set(newAiMsgRef, {
-                                        text: currentFullText,
-                                        sender: 'ai',
-                                        timestamp: Date.now()
-                                    });
+                                    set(newAiMsgRef, { text: currentFullText, sender: 'ai', timestamp: Date.now() });
                                 }
                             } catch (err) { }
                         }
                     }
                 }
-
-                // Analyse et mise à jour de la mémoire après le stream
                 runLongTermMemoryUpdate(targetUser, lastUserMessage);
-
             } catch (e) { 
                 console.error("Erreur de Stream :", e); 
                 set(newAiMsgRef, { text: "Bip boup... Une petite erreur est survenue ! 🐣", sender: 'ai', timestamp: Date.now() });
