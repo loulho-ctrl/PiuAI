@@ -462,15 +462,21 @@
         </div>
 
         <div id="login-screen">
-            <div class="login-logo">🐣</div>
-            <h2>Bienvenue sur Piu AI</h2>
-            <input type="text" id="username-input" class="login-input" placeholder="Nom d'utilisateur...">
-            <input type="password" id="password-input" class="login-input" placeholder="Mot de passe...">
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button id="login-btn">Se connecter</button>
-                <button id="register-btn" style="background-color: #2ecc71;">Créer un compte</button>
-            </div>
-        </div>
+    <div class="login-logo">🐣</div>
+    <h2>Bienvenue sur Piu AI</h2>
+    
+    <input type="text" id="username-input" class="login-input" placeholder="Nom d'utilisateur...">
+    <input type="password" id="password-input" class="login-input" placeholder="Mot de passe...">
+    
+    <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button id="login-btn">Se connecter</button>
+        <button id="register-btn" style="background-color: #2ecc71;">Créer un compte</button>
+    </div>
+
+    <button id="google-login-btn" style="background-color: #4285f4; margin-top: 15px; width: 100%; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 5px; font-weight: bold;">
+        Se connecter avec Google
+    </button>
+</div>
 
         <div id="chat-screen">
             <div id="messages"></div>
@@ -542,7 +548,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCSqcoCPrAbmC2LxCRDCKD82UlFyZRmYdY",
@@ -719,7 +725,20 @@
                 .then(() => alert("🔓 Connecté !"))
                 .catch(() => alert("❌ Identifiants incorrects."));
         };
-
+        
+// --- AJOUTE CE BLOC ICI ---
+        const provider = new GoogleAuthProvider();
+        document.getElementById('google-login-btn').onclick = () => {
+            signInWithPopup(auth, provider)
+                .then((result) => {
+                    console.log("Connexion Google réussie :", result.user);
+                })
+                .catch((error) => {
+                    console.error("Erreur connexion Google :", error);
+                    alert("Erreur lors de la connexion Google : " + error.message);
+                });
+        };
+        
         document.getElementById('logout-btn').addEventListener('click', () => {
             signOut(auth).then(() => {
                 document.body.classList.add('auth-screen');
