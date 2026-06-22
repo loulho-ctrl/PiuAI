@@ -597,21 +597,19 @@
         // ========================================================
 
         // --- FONCTION GÉNÉRATION IMAGE ---
-               async function generateImage(prompt) {
-            // On cible la zone permanente au lieu de la liste des messages
+                       async function generateImage(prompt) {
             const imageArea = document.getElementById('image-display-area');
-            
-            // On vide l'ancienne image pour mettre la nouvelle
-            imageArea.innerHTML = `<div>🎨 Piu AI dessine : ${prompt}...</div>`;
-
             const encodedPrompt = encodeURIComponent(prompt);
             const seed = Math.floor(Math.random() * 1000000); 
             const imageUrl = `https://pollinations.ai/p/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true`;
+            
+            // Affiche le lien en texte pour tester si c'est un problème de lien
+            imageArea.innerHTML = `<p style="font-size: 10px; word-break: break-all;">Lien test : ${imageUrl}</p>`;
 
-            // On simule le chargement
+            // Ajout d'un petit délai avant de tenter l'affichage de l'image
             setTimeout(() => {
-                imageArea.innerHTML = `<img src="${imageUrl}" style="max-width: 90%; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" alt="Image générée">`;
-            }, 2000);
+                imageArea.innerHTML += `<img src="${imageUrl}" style="max-width: 90%; border-radius: 15px; margin-top: 10px;" alt="Image générée">`;
+            }, 500);
         }
 
                         // --- BOUTON D'ENVOI CORRIGÉ (TEXTE + IMAGE) ---
